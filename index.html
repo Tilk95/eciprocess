@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Processeur ECI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">Processeur de fichiers ECI</h1>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="text-center">
+                <input type="file" id="eciFile" accept=".eci,.txt" class="hidden">
+                <label for="eciFile" class="inline-block px-6 py-3 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition-colors">
+                    Sélectionner un fichier ECI
+                </label>
+            </div>
+        </div>
+
+        <div id="fileContent" class="bg-white rounded-lg shadow-md p-6">
+            <div class="text-center text-gray-500">
+                Veuillez sélectionner un fichier ECI pour afficher son contenu
+            </div>
+        </div>
+    </div>
+
+    <script src="js/parsers/ECIParser.js"></script>
+    <script src="js/views/ECITableView.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html> 
