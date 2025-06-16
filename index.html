@@ -8,6 +8,17 @@
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8">
+        <!-- Barre d'outils -->
+        <div id="toolbar" class="flex flex-wrap items-center gap-4 bg-white rounded-lg shadow p-4 mb-8">
+            <button id="initDbBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded transition-colors">
+                Initialiser la BDD
+            </button>
+            <button id="viewDbBtn" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded transition-colors">
+                Consulter la base
+            </button>
+            <!-- D'autres boutons pourront être ajoutés ici -->
+        </div>
+
         <div class="bg-white rounded-lg shadow-md p-6 mb-8">
             <div class="text-center">
                 <input type="file" id="eciFile" accept=".eci,.txt" class="hidden">
@@ -24,16 +35,37 @@
         </div>
     </div>
 
+    <script src="js/appInfo.js"></script>
+    <script src="js/db/ECIDatabase.js"></script>
+    <script src="js/views/ECIDatabaseModal.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
     <script src="js/parsers/ECIParser.js"></script>
     <script src="js/views/ECITableView.js"></script>
     <script src="js/main.js"></script>
-    <script src="js/appInfo.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         if (window.APP_INFO) {
             document.title = `${window.APP_INFO.name} [version ${window.APP_INFO.version}]`;
-            const h1 = document.querySelector('h1');
-            if (h1) h1.textContent = `${window.APP_INFO.name} [version ${window.APP_INFO.version}]`;
+        }
+
+        // Gestion du bouton Initialiser la BDD
+        const initBtn = document.getElementById('initDbBtn');
+        if (initBtn) {
+            initBtn.addEventListener('click', async () => {
+                if (!window.eciDb) {
+                    window.eciDb = new window.ECIDatabase();
+                }
+                await window.eciDb.init();
+                alert('Base de données initialisée avec succès !');
+            });
+        }
+
+        // Gestion du bouton Consulter la base
+        const viewDbBtn = document.getElementById('viewDbBtn');
+        if (viewDbBtn) {
+            viewDbBtn.addEventListener('click', () => {
+                if (window.showECIDatabaseModal) window.showECIDatabaseModal();
+            });
         }
     });
     </script>
