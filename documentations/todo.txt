@@ -1,0 +1,395 @@
+projet Process ECI
+
+L'objectif du projet est de lire un fichier ECI et de mettre à jour une base de données 
+afin de ne conserver que le dernier etat connue de chaque circulation et ainsi construire 
+le plan de transport.
+
+Le plan de transport est constitué de l'ensemble des circulations théoriques actives sur le réseau ferroviaire français ( RFN ) 
+pour un service annuel donné.
+
+Dans un contexte SNCF la notion de service annuel est déterminé par une DDS ( Date Début de Service) et une DFS ( Date Fin de Service )
+Ce service remplace la notion d'année.
+Elle est essentiel dans la gestion du régimage des circulations.
+Exemple de service :
+SAxxxx : 
+    Service Annuel xxxx 
+    DDS ( Date Début de Service) = le dimanche qui suit le deuxiéme samedi du mois de décembre de xxxx-1
+    DFS ( Date de Fin de Service ) = le deuxiéme dimanche du mois de décembre de xxxx
+
+Exemple pour le Service Annuel 2026 :
+DDS = 14/12/2025
+DFS = 12/12/2026
+
+A ce jour on dénombre environ 6500000 de circulations jour par service annuel
+
+C'est à dire que pour un service annuel donné on peut avoir 6500000 circulations jours sur le RFN
+
+Cependant pour des raison métiers on ne travaille pas unitairement en circulation jour mais 
+en circulations régimées qui donne lieu à des variantes.
+
+Par exemple
+Soit une circualation 1004 qui fait Paris-Strasbourg
+En semaine cette circulation part de paris à 8h00 et arrive à Strasbourg à 10h30
+Par contre le week end, cette circulation part de Paris à 8h30 et arrive à Strasbourg à 11H00
+
+Si l'on veut essayer de factoriser ces circulations on peut trouver deux types de circukations
+celles de semaine qui font le Paris-Strasbourg de 8h00 à 10h30
+et celles de week end qui font Paris-Strasbourg de 8h30 à 11H00
+On appelera ces deux types de variantes de la circulation 1004
+La variante 1  pour la semaine
+La variante 2 pour le week end.
+
+Dans le fichier ECI que nous avons en entrée, il existe un champ nommé empreinte qui permet 
+ce regroupement et la création de variante.
+En effet, chaque ECI posséde les informations nécessaires à la détermination de la variante et donc le regroupement 
+en variantes cohérente.
+L'artice A1 va contenir des informations spécifiques à chaque circulation jour
+et l'article AE, contiendra un champ empreinte qui contient l'information de regroupement
+Ainsi en regroupant les ECI ayant une meme empreinte on sait automatiquement à quelle variante 
+la circulation appartient
+
+Cependant le fichier ECI ne contient pas uniquement le dernier d'une circulation mais l'ensemble des 
+version de d'une circulation jour afin de suivre tout ce qui s'est produit sur la circulation.
+Exemple :
+Dans la phase de construction du service ( le 01/01/2025 ) par les horairiste notre circulation 1004 de semaine 
+partait de Paris à 8h10 et arrivée à 10h40
+Suite à une demande du client ( le 15/02/2025) le 1004 ne doit plus faire 8h10-10h40 mais 8h00-10h30
+
+Dans le fichier ECI nous aurons deux enregistrements un premier indiquant que la circulation
+1004 doit rouler la semaine de Paris à 08h10 arrivée 0h40 avec une date de validité au 01/01/2025
+puis une deuxiéme ligne qui indique que le 1004 doit rouler la semaine de Paris à 08h00-10h30
+
+Dans le cas de création ou de changement d'heure pour une circulation jour le champ A1.typeECI sera= 'P' comme Planifié.
+Par contre il est possible de supprimer une circulation jour et alors on aura un typeECI = 'S'
+
+autre information importante.
+Il n'y a pas qu'un unique fichier ECI contenant le plan de transport mais n fichiers ECI, qui sont 
+générés dans le temps pour créer le plan de transport.
+Par exemple, en cible, le module ODB ( Orchestration De Basic ) sera appelé toutes les minutes
+pour extraire les derniéres informations à intégrer dans la base de données.
+
+Cela veut dire, que nous allons devoir concerver dans une table tous les ECI déja intégrés et ne 
+pas mettre à jour notre table si la date de validité de l'ECI encours est inférieure à l'ECI traité en BASE.
+
+En effet, dans le cas où les fichiers ECI arriveraient dans le désordre on risquerait de faire de mauvaises mise à jour.
+
+Il faudra donc traiter les fichiers ECI, et avant de mettre à jour un ECI en BASE, si ce dernier existe déja ne le mettre à jour 
+que si sa nouvelle date de validité est supérieure à la date précédement traitée.
+
+Concept de doublon
+En regardant ce que l'on a dit jusqu'à présent, on dit qu'il faut mettre à jour les variantes de circulation en fonction
+des données trouvées dans le fichier ECI
+
+Cependant, nous allons introduire la notion de doublon de circulation.
+
+une circulation jour = marche / date / nature 
+ou nature est une information représentant la nature de la circulation et peu prendre deux valeurs 
+R pour Régulier , F pour Facultatif
+Cette information se retrouve dans l'article A1.nature du fichier ECI.
+
+Un doublon de circulation est représenté par le fait que l'on trouve plusieurs fois en base 
+un couple marche / date départ / nature. 
+Attention on ne tient pas compte de l'heure de départ car il est interdit d'avoir 
+plusieurs fois le couple : marche / date départ / nature 
+Exemple :
+1004 / 01.01.2025 / R de 8H00 
+1004 / 01.01.2025 / R de 08h10 
+ceci est un doublon de circulation car le 1004 du 01.01.2025 roule à 08H00 ou 08h10 mais ne peux rouler à 08H00 08h10 en meme temps
+
+par contre 
+1004 / 01.01.2025 / R de 8H00 
+1004 / 01.01.2025 / F de 08h10 
+ceci n'est pas un doublon de circulation 
+car le 1004 du 01.01.2025 qui roule à 08H00 est de type Régulier 
+et le 1004 08h10 est de type Facultatif
+
+chaque ECI posséde un champ guidECI qui identifie de façon unique un ECI
+
+Cette donnée sera essentielle pour le traitement des informations
+
+Il faudra traiter tous les ECI dans l'ordre de lecture du fichier ECI afin d'appliquer les
+memes traitements dans la BDD.
+
+Il faudra donc lire le fichier ECI par bloc dans lequel on trouvera tous les enregistrements pour 
+une circulation jour c'est à dire les ECI à appliquer pour une marche/date départ/nature.
+En effet, au vue du contenu du fichier ECI, on pourra avoir plusieurs enregistrements pour une marche/date départ/nature donnée avec des dates d'application successives.
+Exemple : 
+pour la circulation 1004/01.05.2024 
+
+premier ECI type "P" avec une date de validité au 01.01.2024 -> création du 1004 en départ à 08H00
+deuxiéme ECI type "S" avec une date de validité au 10.01.2024 -> suppression de la circulation 
+troisiéme ECI type "P" avec une date de validité au 20.01.2024 -> création du 1004 en départ à 08h10
+quatriéme ECI type "P" avec un date de validité au 30.01.2024 -> modification du 1004 et passage à 08h20.
+
+
+les ECI de type ="S" ont une particularité.
+L'ECI a supprimé se trouve dans l'article A1.guidASupprimer
+et dans ce cas il faut vérifier la présence de ce guidId dans la table pdt_cireg_jour_guid.guid_eci
+
+
+Voici donc le process que nous envisageons pour tenir à jour la BDD à partir des ECI
+
+Comme pré-requis il faudra :
+    que le fichier ECI soit trié sur des critéres particuliers :
+        marche
+        date de départ ( et surtout pas l'heure)
+        nature
+        date de début de validité ( date et heure )
+
+    que les empreintes se trouvent dans l'article AE
+
+Structures de BDD envisagées 
+
+    table pdt_cireg_jour
+        id_int_cireg_jour ( key primary auto increment )
+        id_int_cireg ( foreign key sur pdt_cireg )
+        service_annuel
+        marche_depart
+        date_depart
+        nature
+        guid_eci
+        date_heure_validite
+
+    table pdt_cireg
+        id_int_cireg ( key primary auto increment ) 
+        service_annuel
+        marche_depart
+        heure_depart
+        nature
+        regime_binaire
+        empreinte_circulation
+
+Proposition d'algoritme
+
+DEBUT MAIN()
+    /* a_id_int_cireg_jour      : cle_primaire de la table pdt_cireg_jour contenant la circulation jour de l'ECI en cours
+   
+    TANTQUE des enregistrements dans le fichiers ECI FAIRE
+
+        LIRE les ECI par bloc contenant le couple marche/dateDepart/nature         
+
+        DEBUT TRANSACTION
+
+        POUR tous les enregistrements du bloc ECI lu précédement FAIRE
+            (b_is_candidat, a_id_int_cireg_jour) = IS_ECI_CANDIDAT(bloc[n].a1)
+            SI b_is_candidat ALORS
+                contexte['a_id_int_cireg_jour'] = a_id_int_cireg_jour
+
+                SI bloc[n].a1.typeECI = 'P' ALORS
+                    TRAITER_ECI_TYPE_PLANIFIE(bloc[n],contexte) //** on envoie tous les articles Ax
+                SINON
+                    TRAITER_ECI_TYPE_SUPPRIME(bloc[n].a1.guidASupprimer)
+                FINSI
+            FINSI
+        FINPOUR    
+        
+        SI TOUT s'est bien passé ALORS
+            COMMIT TRANSACTION
+        SINON
+            ROLLBACK TRANSACTION
+        FINSI
+
+    FINTANTQUE
+FIN MAIN()
+
+
+FONCTION IS_ECI_CANDIDAT(p_a1)
+/*****************************************************************
+/* DESCRIPTION
+/*  Recherche si la circulation jour contenue dans l'ECI existe
+/*  Cette fonction permet d'assurer la cohérence du traitement meme si les fichiers ECI arrivent dans le désordre.
+/* ENTREE
+/*  <p_a1> : article a1 ( en cours traitement ) 
+/* SORTIE
+/*  <is_candidat> : 
+/*          - True : si l'eci n'existe pas ou si l'eci existe avec date de validité < p_a1.dateHeureValidite  
+/*          - ou False : par défaut 
+/*****************************************************************
+
+    is_candidat = False
+
+    /* Recherche s'il existe une circulation jour p_a1.marche , de nature p_a1.nature à la date p_a1.dateDépart
+    cireg_jour = RECHERCHER_pdt_cireg_Jour_par_marche_date_nature(
+                        p_a1.serviceAnnuel,p_a1.marche,p_a1.dateDepart,p_a1.nature
+                        )
+    SI cireg_jour EXISTE ALORS
+
+        /* il existe une circulation jour à cette date on vérifie s'il faut en tenir compte  
+        SI cireg_jour.dateHeureValidite < p_a1.dateHeureValidite ALORS
+            /* la date de validité est ok
+            a_id_int_cireg_jour = cireg_jour.id_int_cireg_jour                
+            is_candidat = True
+        FINSI 
+    
+    SINON
+        /* pas de circulation jour trouvée donc l'ECI est candidat
+        is_candidat = True
+        a_id_int_cireg_jour = null
+    
+    FINSI
+
+    RETOURNER ( is_candidat, a_id_int_cireg_jour )
+
+FIN
+
+FONCTION CONSTRUIRE_DDS(p_service_annuel)
+/* calcul d'une DDS en fonction du service 
+
+    annee = EXTRAIRE_ANNEE(p_service_annuel) // format AAAAMMJJ
+    
+    // Calcul du 2ème samedi de décembre (année-1)
+    annee_precedente = annee - 1
+    premier_decembre = DATE(annee_precedente, 12, 1)
+    
+    // Recherche du premier samedi
+    jour_semaine = JOUR_DE_LA_SEMAINE(premier_decembre) // 0=dimanche, 6=samedi
+    jours_jusqu_samedi = (6 - jour_semaine) % 7
+    premier_samedi = premier_decembre + jours_jusqu_samedi
+    
+    // Deuxième samedi
+    deuxieme_samedi = premier_samedi + 7
+    
+    // Dimanche suivant (DDS)
+    dds = deuxieme_samedi + 1
+    
+    RETOURNER dds
+FIN
+
+FONCTION CALCULER_QUANTIEME(p_service_annuel, p_date_depart)
+/* fonction permettant calculer un quantiéme en fonction d'un service et d'une date
+
+    dds = CONSTRUIRE_DDS(p_service_annuel)  // Format: AAAAMMJJ
+    quantieme = DIFF_JOURS(p_date_depart, dds) + 1
+    RETOURNER quantieme
+FIN
+
+FONCTION SUPPRIMER_UNE_CIRCULATION_JOUR(p_id_pdt_cireg_jour,p_update_regime=false)
+/* suppression d'une circulation jour dans la table pdt_cireg_jour
+/* option : 
+/*      p_update_regime : mise à jour ( suppression ) du régime binaire de la variante de la circulation jour
+
+    cireg_jour = RECHERCHER_pdt_cireg_Jour_par_id(p_id_pdt_cireg_jour)
+    
+    SI cireg_jour EXISTE ALORS 
+
+        SI p_update_regime ALORS
+            cireg = RECHERCHER_pdt_cireg_par_id(pdt_cireg_jour.id_int_cireg)
+
+            SI cireg EXISTE ALORS 
+                /* désactivation de la circulation dans le régime binaire
+                quantieme = CALCULER_QUANTIEME(
+                    pdt_cireg.service_annuel, 
+                    pdt_cireg_jour.date_depart
+                )
+                nouveau_regime = cireg.regime_binaire
+                nouveau_regime[quantieme] = '0'
+                cireg.regime_binaire = nouveau_regime
+                UPDATE_pdt_cireg_regime_binaire(cireg.id,nouveau_regime) 
+            FINSI
+        FINSI
+
+        /* suppression de l'enregistrement dans pdt_cireg_jour
+        DELETE_pdt_cireg_jour_par_id(p_id_pdt_cireg_jour)
+    FINSI
+FIN
+
+FONCTION AJOUTER_UNE_CIRCULATION_JOUR(p_eci,p_id_pdt_cireg)
+/* ajoute une circulation jour 
+/*  - création enregistrement pdt_cireg_jour
+/*  - MAJ regime dans pdt_cireg
+
+    cireg = RECHERCHER_pdt_cireg_par_id(p_id_pdt_cireg)
+
+    SI cireg EXISTE ALORS 
+        
+        // Création enregistrement pdt_cireg_jour
+        nouveau_cireg_jour = {
+            id_int_cireg: p_id_pdt_cireg,
+            service_annuel: p_eci.a1.serviceAnnuel,
+            marche_depart: p_eci.a1.marcheDepart,
+            date_depart: p_eci.a1.dateDepart,
+            nature: p_eci.a1.nature
+
+            guid_eci: eci.a1.guidECI,
+            date_heure_validite: p_eci.a1.dateHeureValidite
+        }
+
+        id_cireg_jour = INSERER_CIRCULATION_JOUR(nouveau_cireg_jour)
+
+        // Mise à jour régime binaire
+        quantieme = CALCULER_QUANTIEME(
+            cireg.service_annuel,
+            p_eci.a1.dateDepart
+        )
+        
+        nouveau_regime = cireg.regime_binaire
+        nouveau_regime[quantieme] = '1'
+
+        UPDATE_pdt_cireg_regime_binaire(p_id_pdt_cireg, nouveau_regime)
+    FIN
+FIN
+
+FONCTION CREER_VARIANTE(p_eci) 
+/* creation d'une variante 
+
+    // Création enregistrement pdt_cireg
+    nouvelle_variante = {
+        service_annuel: p_eci.a1.serviceAnnuel,
+        marche_depart: p_eci.a1.marcheDepart,
+        heure_depart: p_eci.a1.heureDepart,
+        nature: p_eci.a1.nature,
+        regime_binaire: REPETER("0", 400)
+    }
+    
+    id_variante = INSERER_VARIANTE(nouvelle_variante)
+    
+    RETOURNER id_variante
+FIN
+
+FONCTION TRAITER_ECI_TYPE_SUPPRIME(p_guidASupprimer)
+// fonction de suppression de l'ECI dont le guidECI = p_guidASupprimer
+
+    /* Rechercher si le guidASupprimer existe 
+    cireg_jour = RECHERCHER_pdt_cireg_jour_par_guid(p_guidASupprimer)
+    
+    SI cireg_jour EXISTE ALORS 
+        /* on a trouvé le guidEci à supprimer
+        SUPPRIMER_UNE_CIRCULATION_JOUR(cireg_jour.id_int_cireg_jour,true)
+    FINSI
+FIN
+
+
+FONCTION TRAITER_ECI_TYPE_PLANIFIE(p_eci,p_contexte)
+
+    /* etape 1 : vérification présence de doublon 
+    /* si p_contexte.a_id_int_cireg_jour n'est pas null alors il contient l'identifiant du doublon
+    SI p_contexte['a_id_int_cireg_jour'] is not null ALORS
+        /* on supprime cette circulation jour de pdt_cireg_jour pour éviter les doublons 
+        SUPPRIMER_UNE_CIRCULATION_JOUR(p_contexte.a_id_int_cireg_jour,true)
+    FINSI
+
+    /*etape 2 : est-ce qu'une variante de cet ECI existe, en recherchant la présence de l'empreinte
+    /* de l'ECI (article AE) dans la table pdt_cireg
+
+    cireg = RECHERCHER_pdt_cireg_par_empreinte(p_eci.a1.serviceAnnuel,p_eci.ae.empreinte)
+
+    SI cireg EXISTE ALORS 
+        /* une variante existe pour cet ECI
+        /* on ajoute le jour pour cet ECI 
+        AJOUTER_UNE_CIRCULATION_JOUR(p_eci,cireg.id_int_cireg)
+
+    SINON
+        /* pas de variante sur cet ECI
+        /* creation d'une variante  
+        i_id_int_cireg = CREER_VARIANTE(p_eci)
+
+        /* i_id_int_cireg contiend l'identifiant de la variante que l'on vient de créer 
+        
+        SI i_id_int_cireg is not null ALORS
+            /* on ajoute le jour pour cet ECI
+            AJOUTER_UNE_CIRCULATION_JOUR(p_eci,i_id_int_cireg)
+        FINSI
+
+    FINSI
+FIN
+
