@@ -503,6 +503,28 @@ class ECITableView {
         scrollContainer.className = 'overflow-x-auto';
         this.container.appendChild(scrollContainer);
 
+        // Pagination en haut (à l'intérieur du scrollContainer)
+        if (this.articles.length > 0) {
+            const paginationTop = this.createPagination();
+            scrollContainer.appendChild(paginationTop);
+            // Ajouter les écouteurs d'événements pour la pagination du haut
+            const buttonsTop = paginationTop.querySelectorAll('button');
+            buttonsTop.forEach(button => {
+                button.addEventListener('click', () => {
+                    if (button.textContent.includes('Précédent') && this.currentPage > 1) {
+                        this.currentPage--;
+                        this.render();
+                    } else if (button.textContent.includes('Suivant') && this.currentPage < this.totalPages) {
+                        this.currentPage++;
+                        this.render();
+                    } else if (!isNaN(parseInt(button.textContent))) {
+                        this.currentPage = parseInt(button.textContent);
+                        this.render();
+                    }
+                });
+            });
+        }
+
         this.table = this.createTable();
         scrollContainer.appendChild(this.table);
 
@@ -522,11 +544,12 @@ class ECITableView {
             tbody.appendChild(this.createTableRow(article, rowGroupIndex));
         });
 
+        // Pagination en bas (en dehors du scrollContainer)
         if (this.articles.length > 0) {
             const pagination = this.createPagination();
             this.container.appendChild(pagination);
 
-            // Ajouter les écouteurs d'événements pour la pagination
+            // Ajouter les écouteurs d'événements pour la pagination du bas
             const buttons = pagination.querySelectorAll('button');
             buttons.forEach(button => {
                 button.addEventListener('click', () => {
