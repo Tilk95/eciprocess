@@ -75,56 +75,128 @@
     function showRegimeDetails(row) {
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-[60]';
-        
+        modal.id = 'regimeDetailsModal';
+
         const dds = construireDDS(row.service_annuel);
-        const formattedDDS = `${dds.substring(6, 8)}/${dds.substring(4, 6)}/${dds.substring(0, 4)}`;
-        
-        modal.innerHTML = `
-            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium text-gray-900">Détails du régime</h3>
-                    <button class="text-gray-400 hover:text-gray-500" onclick="this.closest('.fixed').remove()">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
+        // const formattedDDS = `${dds.substring(6, 8)}/${dds.substring(4, 6)}/${dds.substring(0, 4)}`;
+
+        // Formatage de l'heure au format HH:MM:SS
+        let heure = row.heure_depart || '';
+        let formattedHeure = '';
+        if (heure.length === 6) {
+            formattedHeure = `${heure.substring(0,2)}:${heure.substring(2,4)}:${heure.substring(4,6)}`;
+        } else if (heure.length === 4) {
+            formattedHeure = `${heure.substring(0,2)}:${heure.substring(2,4)}:00`;
+        } else {
+            formattedHeure = heure;
+        }
+
+        // Convertir le régime binaire en dates actives
+        const datesActives = [];
+        const ddsDate = new Date(
+            parseInt(dds.substring(0, 4)),
+            parseInt(dds.substring(4, 6)) - 1,
+            parseInt(dds.substring(6, 8))
+        );
+        for (let i = 0; i < row.regime_binaire.length; i++) {
+            if (row.regime_binaire[i] === '1') {
+                const date = new Date(ddsDate);
+                date.setDate(date.getDate() + i);
+                datesActives.push(date);
+            }
+        }
+
+        // Générer les 13 mois à partir de la DDS
+        const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+            'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+        let calendarHTML = '';
+        const monthsToShow = 13;
+        for (let i = 0; i < monthsToShow; i++) {
+            const currentDate = new Date(ddsDate);
+            currentDate.setMonth(ddsDate.getMonth() + i);
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const firstDayOfMonth = new Date(year, month, 1).getDay();
+            calendarHTML += `
+                <div class="mb-2 bg-white rounded shadow-sm border border-gray-200 p-1 min-w-[120px] max-w-[130px]">
+                    <div class="text-xs font-semibold text-center mb-1">${monthNames[month]} ${year}</div>
+                    <div class="grid grid-cols-7 gap-[1px] text-[10px]">
+                        <div class="text-center font-semibold text-gray-600">D</div>
+                        <div class="text-center font-semibold text-gray-600">L</div>
+                        <div class="text-center font-semibold text-gray-600">M</div>
+                        <div class="text-center font-semibold text-gray-600">M</div>
+                        <div class="text-center font-semibold text-gray-600">J</div>
+                        <div class="text-center font-semibold text-gray-600">V</div>
+                        <div class="text-center font-semibold text-gray-600">S</div>
+                        ${Array(firstDayOfMonth).fill().map(() => '<div></div>').join('')}
+                        ${Array(daysInMonth).fill().map((_, i) => {
+                            const day = i + 1;
+                            const date = new Date(year, month, day);
+                            const isActive = datesActives.some(d =>
+                                d.getDate() === date.getDate() &&
+                                d.getMonth() === date.getMonth() &&
+                                d.getFullYear() === date.getFullYear()
+                            );
+                            return `<div class="text-center p-[2px] border rounded ${isActive ? 'bg-blue-200 border-blue-400 font-bold text-blue-900' : 'border-gray-200'}">${day}</div>`;
+                        }).join('')}
+                    </div>
                 </div>
-                <div class="space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">Service</p>
-                            <p class="mt-1">SA${row.service_annuel}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">DDS</p>
-                            <p class="mt-1">${formattedDDS}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">Marche</p>
-                            <p class="mt-1">${row.marche_depart}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">Heure</p>
-                            <p class="mt-1">${row.heure_depart}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">Nature</p>
-                            <p class="mt-1">${row.nature}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">Empreinte</p>
-                            <p class="mt-1 break-all">${row.empreinte_circulation || 'Non définie'}</p>
+            `;
+        }
+
+        // Titre personnalisé
+        const titre = `Détail du régime de la marche : ${row.marche_depart} de ${formattedHeure} Nature : ${row.nature} (SA${row.service_annuel})`;
+
+        // Contenu principal de la modale
+        modal.innerHTML = `
+            <div id="regimeModalContent" class="bg-white rounded-t-2xl shadow-xl w-full max-w-6xl mx-4 flex flex-col h-[90vh] transition-all">
+                <div class="sticky top-0 z-10 bg-blue-50 pb-2 pt-4 px-6 flex flex-col gap-2 border-b border-blue-200 rounded-t-2xl">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-lg font-semibold text-blue-900">${titre}</h3>
+                        <div class="flex gap-2">
+                            <button id="fullscreenRegimeBtn" class="text-gray-400 hover:text-gray-600" title="Plein écran">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+                                </svg>
+                            </button>
+                            <button class="text-gray-400 hover:text-gray-500" onclick="document.getElementById('regimeDetailsModal').remove()" title="Fermer">
+                                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
                         </div>
                     </div>
-                    <div>
-                        <p class="text-sm font-medium text-gray-500 mb-2">Régime</p>
-                        <div class="font-mono text-xs break-all bg-gray-50 p-4 rounded">${row.regime_binaire}</div>
+                    <div class="flex flex-row items-center text-xs mb-1">
+                        <span class="font-medium text-blue-800 mr-2">Empreinte</span>
+                        <span class="break-all text-gray-700">${row.empreinte_circulation || 'Non définie'}</span>
+                    </div>
+                    <div class="pt-2 text-sm font-medium text-blue-800">Calendrier des jours actifs</div>
+                </div>
+                <div id="regimeCalendarsScroll" class="flex-1 overflow-y-auto px-6 py-2">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-[6px] justify-items-center">
+                        ${calendarHTML}
                     </div>
                 </div>
             </div>
         `;
-        
+
         document.body.appendChild(modal);
+
+        // Gestion du bouton plein écran
+        const modalContent = modal.querySelector('#regimeModalContent');
+        const fullscreenBtn = modal.querySelector('#fullscreenRegimeBtn');
+        let isFullscreen = false;
+        fullscreenBtn.addEventListener('click', () => {
+            isFullscreen = !isFullscreen;
+            if (isFullscreen) {
+                modalContent.classList.remove('max-w-6xl', 'h-[90vh]', 'mx-4', 'rounded-t-2xl');
+                modalContent.classList.add('w-screen', 'h-screen', 'm-0', 'rounded-none');
+            } else {
+                modalContent.classList.add('max-w-6xl', 'h-[90vh]', 'mx-4', 'rounded-t-2xl');
+                modalContent.classList.remove('w-screen', 'h-screen', 'm-0', 'rounded-none');
+            }
+        });
     }
 
     function construireDDS(serviceAnnuel) {
