@@ -453,56 +453,81 @@ class ECIProcessor {
     }
 
     /**
-     * Regroupe les ECI en blocs par marche/date/nature
+     * Regroupe les ECI en blocs par marche/date Depart/date Heure Validite/nature
      * @param {Array<Object>} ecis - Liste des ECI à regrouper
      * @returns {Array<Array<Object>>} - Liste des blocs d'ECI
      */
     regrouperEnBlocs(ecis) {
+        console.log('\n📋 Début regroupement en blocs');
+        console.log(`📊 Nombre total d'ECIs reçus: ${ecis?.length || 0}`);
+
         const blocs = [];
         let blocCourant = [];
         let derniereCle = '';
 
         // Vérifier que ecis est un tableau non vide
         if (!Array.isArray(ecis) || ecis.length === 0) {
+            console.log('❌ ecis n\'est pas un tableau ou est vide');
             return blocs;
         }
 
         // Trier les ECI par marche, date départ, date validité, nature
         const ecisTries = [...ecis].sort((a, b) => {
-            // Vérifier que a et b ont la structure attendue
-            if (!a?.a1 || !b?.a1) return 0;
+            // Récupérer les données de l'article, qu'il soit dans a1 ou directement dans l'objet
+            const a1A = a.a1 || a;
+            const a1B = b.a1 || b;
             
-            const a1A = a.a1;
-            const a1B = b.a1;
+            // Vérifier que les objets ont les propriétés requises
+            if (!a1A.marche || !a1B.marche) {
+                console.log('❌ Propriétés manquantes:', { a1A, a1B });
+                return 0;
+            }
+            
+            console.log('   🔄 Comparaison ECIs:');
+            console.log(`      ECI A - Marche: ${a1A.marche}, Date: ${a1A.dateDepart}, Validité: ${a1A.dateHeureValidite}, Nature: ${a1A.nature}`);
+            console.log(`      ECI B - Marche: ${a1B.marche}, Date: ${a1B.dateDepart}, Validité: ${a1B.dateHeureValidite}, Nature: ${a1B.nature}`);
             
             // Comparer d'abord par marche
             if (a1A.marche !== a1B.marche) {
-                return (a1A.marche || '').localeCompare(a1B.marche || '');
+                return a1A.marche.localeCompare(a1B.marche);
             }
             
             // Si même marche, comparer par date de départ
             if (a1A.dateDepart !== a1B.dateDepart) {
-                return (a1A.dateDepart || '').localeCompare(a1B.dateDepart || '');
+                return a1A.dateDepart.localeCompare(a1B.dateDepart);
             }
 
             // Si même date de départ, comparer par date de validité
             if (a1A.dateHeureValidite !== a1B.dateHeureValidite) {
-                return (a1A.dateHeureValidite || '').localeCompare(a1B.dateHeureValidite || '');
+                return a1A.dateHeureValidite.localeCompare(a1B.dateHeureValidite);
             }
             
             // Si même date de validité, comparer par nature
             return (a1A.nature || '').localeCompare(a1B.nature || '');
         });
 
+        console.log('\n   📑 ECIs triés:');
+        ecisTries.forEach((eci, index) => {
+            const article = eci.a1 || eci;
+            console.log(`      ${index + 1}. Marche: ${article.marche}, Date: ${article.dateDepart}, Validité: ${article.dateHeureValidite}, Nature: ${article.nature}`);
+        });
+
         // Regrouper en blocs
         for (const eci of ecisTries) {
-            // Vérifier que l'ECI a la structure attendue
-            if (!eci?.a1) continue;
+            const article = eci.a1 || eci;
             
-            const a1 = eci.a1;
-            const cleCourante = `${a1.marche || ''}_${a1.dateDepart || ''}_${a1.dateHeureValidite || ''}_${a1.nature || ''}`;
-
+            // Vérifier que l'article a les propriétés requises
+            if (!article.marche || !article.dateDepart) {
+                console.log('❌ Propriétés manquantes dans l\'article:', article);
+                continue;
+            }
+            
+            const cleCourante = `${article.marche}_${article.dateDepart}`;
+            console.log(`\n   🔑 Clé courante: ${cleCourante}`);
+            console.log(`   🔑 Dernière clé: ${derniereCle}`);
+            
             if (cleCourante !== derniereCle && blocCourant.length > 0) {
+                console.log(`   ➡️ Nouveau bloc créé avec ${blocCourant.length} ECIs`);
                 blocs.push(blocCourant);
                 blocCourant = [];
             }
@@ -513,8 +538,17 @@ class ECIProcessor {
 
         // Ajouter le dernier bloc
         if (blocCourant.length > 0) {
+            console.log(`   ➡️ Dernier bloc ajouté avec ${blocCourant.length} ECIs`);
             blocs.push(blocCourant);
         }
+
+        console.log(`\n📦 Résumé final:`);
+        console.log(`   Nombre total de blocs créés: ${blocs.length}`);
+        blocs.forEach((bloc, index) => {
+            console.log(`   Bloc ${index + 1}: ${bloc.length} ECIs`);
+            const article = bloc[0].a1 || bloc[0];
+            console.log(`      Premier ECI - Marche: ${article.marche}, Date: ${article.dateDepart}, Validité: ${article.dateHeureValidite}, Nature: ${article.nature}`);
+        });
 
         return blocs;
     }
