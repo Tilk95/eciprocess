@@ -1,5 +1,5 @@
 (function(global) {
-    function renderTable(rows, currentPage = 1, itemsPerPage = 25) {
+    function renderTable(rows, currentPage = 1, itemsPerPage = 25, tableId = null, filteredRows = null) {
         if (!rows || rows.length === 0) {
             return '<div class="text-gray-400 italic">Aucune donnée</div>';
         }
@@ -12,7 +12,13 @@
         const headers = Object.keys(rows[0]);
         // Navigation en haut avec padding à gauche et à droite
         let html = `<div class='flex flex-wrap justify-between items-center gap-4 mb-2 px-6' style='padding-left:24px;padding-right:24px;'>`;
-        html += `<div class='text-xs text-blue-700'>Affichage de ${start + 1} à ${Math.min(end, rows.length)} sur ${rows.length} enregistrements</div>`;
+        html += `<div class='flex items-center gap-2'>`;
+        html += `<span class='text-xs text-blue-700'>Affichage de ${start + 1} à ${Math.min(end, rows.length)} sur ${rows.length} enregistrements</span>`;
+        // Bouton Export CSV
+        if (tableId) {
+            html += `<button type='button' class='export-csv-btn px-3 py-1 border border-blue-300 rounded text-blue-700 bg-white font-semibold hover:bg-blue-100' data-tableid='${tableId}'>Exporter CSV</button>`;
+        }
+        html += `</div>`;
         html += `<div class='flex items-center gap-2'>`;
         html += `<label class='text-sm text-blue-900 mr-1'>Afficher</label>`;
         html += `<select class='items-per-page px-2 py-1 border rounded text-sm mr-2'>`;
@@ -444,7 +450,10 @@
                         const end = start + itemsPerPage;
                         // Zone de navigation en haut
                         let html = `<div class='flex flex-wrap justify-between items-center gap-4 mb-2'>`;
-                        html += `<div class='text-xs text-blue-700'>Affichage de ${start + 1} à ${Math.min(end, result.length)} sur ${result.length} enregistrements</div>`;
+                        html += `<div class='flex items-center gap-2'>`;
+                        html += `<span class='text-xs text-blue-700'>Affichage de ${start + 1} à ${Math.min(end, result.length)} sur ${result.length} enregistrements</span>`;
+                        html += `<button type='button' class='export-csv-btn px-3 py-1 border border-blue-300 rounded text-blue-700 bg-white font-semibold hover:bg-blue-100' data-tableid='sqlResult'>Exporter CSV</button>`;
+                        html += `</div>`;
                         html += `<div class='flex items-center gap-2'>`;
                         html += `<label class='text-sm text-blue-900 mr-1'>Afficher</label>`;
                         html += `<select class='sql-items-per-page px-2 py-1 border rounded text-sm mr-2'>`;
@@ -478,6 +487,8 @@
                         });
                         html += '</tbody></table></div>';
                         sqlResult.innerHTML = html;
+                        // Stocker le résultat courant pour l'export CSV
+                        window._lastSQLResult = result;
                         // Gestion des boutons
                         const prevBtn = sqlResult.querySelector('.sql-prev-page');
                         const nextBtn = sqlResult.querySelector('.sql-next-page');
@@ -670,7 +681,7 @@
             const state = paginationState[tableId];
             const tableElement = document.getElementById(`table${tableId.charAt(0).toUpperCase() + tableId.slice(1)}`);
             if (tableElement) {
-                tableElement.innerHTML = renderTable(state.filteredData || state.data, state.currentPage, state.itemsPerPage);
+                tableElement.innerHTML = renderTable(state.filteredData || state.data, state.currentPage, state.itemsPerPage, tableId, state.filteredData);
                 attachEventHandlers(tableId);
             }
         }
@@ -709,6 +720,57 @@
                 }
                 window.eciDb.db = new window.eciDb.SQL.Database(new Uint8Array(arrayBuffer));
                 updateTables();
+            }
+        });
+
+        // Ajout de la logique d'export CSV pour les tables pdt_cireg, pdt_cireg_jour et SQL
+        document.addEventListener('click', function(e) {
+            if (e.target && e.target.classList.contains('export-csv-btn')) {
+                const tableId = e.target.getAttribute('data-tableid');
+                let data = [];
+                let headers = [];
+                // Pour pdt_cireg et pdt_cireg_jour, on exporte les données filtrées (affichées)
+                if (tableId === 'cireg' && window.eciDb) {
+                    if (window._lastCiregFiltered) {
+                        data = window._lastCiregFiltered;
+                    } else {
+                        data = window.eciDb.select('SELECT * FROM pdt_cireg');
+                    }
+                } else if (tableId === 'ciregJour' && window.eciDb) {
+                    if (window._lastCiregJourFiltered) {
+                        data = window._lastCiregJourFiltered;
+                    } else {
+                        data = window.eciDb.select('SELECT * FROM pdt_cireg_jour');
+                    }
+                } else if (tableId === 'sqlResult' && window._lastSQLResult) {
+                    data = window._lastSQLResult;
+                }
+                if (data.length > 0) {
+                    headers = Object.keys(data[0]);
+                    const csvRows = [];
+                    csvRows.push(headers.join(','));
+                    data.forEach(row => {
+                        csvRows.push(headers.map(h => {
+                            let val = row[h];
+                            if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
+                                val = '"' + val.replace(/"/g, '""') + '"';
+                            }
+                            return val;
+                        }).join(','));
+                    });
+                    const csvContent = csvRows.join('\r\n');
+                    const blob = new Blob([csvContent], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = tableId + '.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }, 100);
+                }
             }
         });
     }
