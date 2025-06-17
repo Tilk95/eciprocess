@@ -166,7 +166,7 @@ DEBUT MAIN()
    
     TANTQUE des enregistrements dans le fichiers ECI FAIRE
 
-        LIRE les ECI par bloc contenant le couple marche/dateDepart/nature         
+        LIRE les ECI par bloc contenant le couple marche/dateDepart/dateHeureValidite/nature 
 
         DEBUT TRANSACTION
 
