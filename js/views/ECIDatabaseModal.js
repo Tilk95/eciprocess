@@ -50,12 +50,109 @@
         pageRows.forEach((row, idx) => {
             html += `<tr class="${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50">`;
             headers.forEach(h => {
-                html += `<td class="px-4 py-2 border-b border-gray-200 whitespace-nowrap">${row[h] ?? ''}</td>`;
+                let cellContent = row[h] ?? '';
+                let cellClass = 'px-4 py-2 border-b border-gray-200 whitespace-nowrap';
+                let cellAttrs = '';
+                
+                // Traitement spécial pour le régime binaire
+                if (h === 'regime_binaire' && cellContent) {
+                    const onesCount = (cellContent.match(/1/g) || []).length;
+                    const firstFour = cellContent.substring(0, 4);
+                    const lastFour = cellContent.substring(cellContent.length - 4);
+                    cellContent = `${onesCount} jour(s) ${firstFour}....${lastFour}`;
+                    cellClass += ' cursor-pointer text-blue-600 hover:text-blue-800';
+                    cellAttrs = `data-row='${JSON.stringify(row).replace(/'/g, "&#39;")}'`;
+                }
+                
+                html += `<td class="${cellClass}" ${cellAttrs}>${cellContent}</td>`;
             });
             html += '</tr>';
         });
         html += '</tbody></table></div></div>';
         return html;
+    }
+
+    function showRegimeDetails(row) {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-[60]';
+        
+        const dds = construireDDS(row.service_annuel);
+        const formattedDDS = `${dds.substring(6, 8)}/${dds.substring(4, 6)}/${dds.substring(0, 4)}`;
+        
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Détails du régime</h3>
+                    <button class="text-gray-400 hover:text-gray-500" onclick="this.closest('.fixed').remove()">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Service</p>
+                            <p class="mt-1">SA${row.service_annuel}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">DDS</p>
+                            <p class="mt-1">${formattedDDS}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Marche</p>
+                            <p class="mt-1">${row.marche_depart}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Heure</p>
+                            <p class="mt-1">${row.heure_depart}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Nature</p>
+                            <p class="mt-1">${row.nature}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Empreinte</p>
+                            <p class="mt-1 break-all">${row.empreinte_circulation || 'Non définie'}</p>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 mb-2">Régime</p>
+                        <div class="font-mono text-xs break-all bg-gray-50 p-4 rounded">${row.regime_binaire}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+
+    function construireDDS(serviceAnnuel) {
+        // Extraire l'année du service (xxxx)
+        const annee = parseInt(serviceAnnuel);
+        const anneePrecedente = annee - 1;
+        
+        // Créer le 1er décembre de l'année précédente
+        const premierDecembre = new Date(anneePrecedente, 11, 1);
+        
+        // Trouver le premier samedi
+        let premierSamedi = new Date(premierDecembre);
+        while (premierSamedi.getDay() !== 6) {
+            premierSamedi.setDate(premierSamedi.getDate() + 1);
+        }
+        
+        // Trouver le deuxième samedi
+        const deuxiemeSamedi = new Date(premierSamedi);
+        deuxiemeSamedi.setDate(deuxiemeSamedi.getDate() + 7);
+        
+        // La DDS est le dimanche suivant le deuxième samedi
+        const dds = new Date(deuxiemeSamedi);
+        dds.setDate(dds.getDate() + 1);
+        
+        // Formater la date en YYYYMMDD
+        return dds.getFullYear().toString() +
+            String(dds.getMonth() + 1).padStart(2, '0') +
+            String(dds.getDate()).padStart(2, '0');
     }
 
     function showECIDatabaseModal() {
@@ -233,77 +330,68 @@
             paginationState.cireg.data = rowsCireg;
             paginationState.ciregJour.data = rowsJour;
 
-            // Rendre les tables avec pagination
-            document.getElementById('tableCiregJour').innerHTML = renderTable(
-                rowsJour, 
-                paginationState.ciregJour.currentPage, 
-                paginationState.ciregJour.itemsPerPage
-            );
-            document.getElementById('tableCireg').innerHTML = renderTable(
-                rowsCireg, 
-                paginationState.cireg.currentPage, 
-                paginationState.cireg.itemsPerPage
-            );
+            // Mettre à jour les deux tables
+            updateTable('cireg');
+            updateTable('ciregJour');
+        }
 
-            // Ajouter les gestionnaires d'événements pour la pagination
-            ['cireg', 'ciregJour'].forEach(tableId => {
-                const table = document.getElementById(`table${tableId.charAt(0).toUpperCase() + tableId.slice(1)}`);
-                if (!table) return;
+        function attachEventHandlers(tableId) {
+            const table = document.getElementById(`table${tableId.charAt(0).toUpperCase() + tableId.slice(1)}`);
+            if (!table) return;
 
-                // Gestionnaire pour "précédent"
-                table.querySelector('.prev-page')?.addEventListener('click', () => {
+            // Gestionnaire pour le régime binaire
+            table.querySelectorAll('td[data-row]').forEach(cell => {
+                cell.addEventListener('click', () => {
+                    try {
+                        const rowData = JSON.parse(cell.dataset.row);
+                        showRegimeDetails(rowData);
+                    } catch (error) {
+                        console.error('Erreur lors du parsing des données:', error);
+                    }
+                });
+            });
+
+            // Gestionnaire pour "précédent"
+            const prevButton = table.querySelector('.prev-page');
+            if (prevButton) {
+                prevButton.addEventListener('click', () => {
                     if (paginationState[tableId].currentPage > 1) {
                         paginationState[tableId].currentPage--;
                         updateTable(tableId);
                     }
                 });
+            }
 
-                // Gestionnaire pour "suivant"
-                table.querySelector('.next-page')?.addEventListener('click', () => {
+            // Gestionnaire pour "suivant"
+            const nextButton = table.querySelector('.next-page');
+            if (nextButton) {
+                nextButton.addEventListener('click', () => {
                     const totalPages = Math.ceil(paginationState[tableId].data.length / paginationState[tableId].itemsPerPage);
                     if (paginationState[tableId].currentPage < totalPages) {
                         paginationState[tableId].currentPage++;
                         updateTable(tableId);
                     }
                 });
+            }
 
-                // Gestionnaire pour "items par page"
-                table.querySelector('.items-per-page')?.addEventListener('change', (e) => {
+            // Gestionnaire pour "items par page"
+            const itemsPerPageSelect = table.querySelector('.items-per-page');
+            if (itemsPerPageSelect) {
+                itemsPerPageSelect.addEventListener('change', (e) => {
                     paginationState[tableId].itemsPerPage = parseInt(e.target.value);
-                    paginationState[tableId].currentPage = 1; // Retour à la première page
+                    paginationState[tableId].currentPage = 1;
                     updateTable(tableId);
                 });
-            });
+            }
         }
 
         function updateTable(tableId) {
             const state = paginationState[tableId];
-            document.getElementById(`table${tableId.charAt(0).toUpperCase() + tableId.slice(1)}`).innerHTML = 
-                renderTable(state.data, state.currentPage, state.itemsPerPage);
-            
-            // Réattacher les gestionnaires d'événements
-            const table = document.getElementById(`table${tableId.charAt(0).toUpperCase() + tableId.slice(1)}`);
-            
-            table.querySelector('.prev-page')?.addEventListener('click', () => {
-                if (state.currentPage > 1) {
-                    state.currentPage--;
-                    updateTable(tableId);
-                }
-            });
-
-            table.querySelector('.next-page')?.addEventListener('click', () => {
-                const totalPages = Math.ceil(state.data.length / state.itemsPerPage);
-                if (state.currentPage < totalPages) {
-                    state.currentPage++;
-                    updateTable(tableId);
-                }
-            });
-
-            table.querySelector('.items-per-page')?.addEventListener('change', (e) => {
-                state.itemsPerPage = parseInt(e.target.value);
-                state.currentPage = 1;
-                updateTable(tableId);
-            });
+            const tableElement = document.getElementById(`table${tableId.charAt(0).toUpperCase() + tableId.slice(1)}`);
+            if (tableElement) {
+                tableElement.innerHTML = renderTable(state.data, state.currentPage, state.itemsPerPage);
+                attachEventHandlers(tableId);
+            }
         }
 
         // Fermeture de la modale
@@ -330,7 +418,7 @@
         });
 
         // Importer la base
-        modal.querySelector('#importDbInput').addEventListener('change', async (e) => {
+        modal.querySelector('#importDbInput').addEventListener('click', async (e) => {
             const file = e.target.files[0];
             if (file) {
                 const arrayBuffer = await file.arrayBuffer();
@@ -338,7 +426,6 @@
                     window.eciDb = new window.ECIDatabase();
                     await window.eciDb.init();
                 }
-                // Remplacer la base actuelle par celle importée
                 window.eciDb.db = new window.eciDb.SQL.Database(new Uint8Array(arrayBuffer));
                 updateTables();
             }
