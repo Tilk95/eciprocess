@@ -59,11 +59,14 @@ class ECIParser {
                     if (currentECI) {
                         ecis.push(currentECI);
                     }
-                    currentECI = this.parseA1Article(line);
+                    currentECI = { a1: this.parseA1Article(line) };
                     break;
                 case 'AE':
                     if (currentECI) {
                         currentECI.ae = this.parseAEArticle(line);
+                        if (currentECI.a1 && currentECI.ae && currentECI.a1.typeECI === 'P') {
+                            currentECI.a1.empreinte_circulation = currentECI.ae.empreinte;
+                        }
                     }
                     break;
                 case 'B1':

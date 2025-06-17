@@ -15,29 +15,52 @@ class ECIDatabase {
     }
 
     createTables() {
+        // Suppression des tables si elles existent pour recréer avec les bonnes contraintes
+        this.db.run(`DROP TABLE IF EXISTS pdt_cireg_jour;`);
+        this.db.run(`DROP TABLE IF EXISTS pdt_cireg;`);
+
         this.db.run(`
             CREATE TABLE IF NOT EXISTS pdt_cireg_jour (
                 id_int_cireg_jour INTEGER PRIMARY KEY AUTOINCREMENT,
-                id_int_cireg INTEGER,
-                service_annuel TEXT,
-                marche_depart TEXT,
-                date_depart TEXT,
-                nature TEXT,
-                guid_eci TEXT,
-                date_heure_validite TEXT
+                id_int_cireg INTEGER NOT NULL,
+                service_annuel CHAR(4) NOT NULL,
+                marche_depart CHAR(6) NOT NULL,
+                date_depart CHAR(8) NOT NULL,
+                nature CHAR(1) NOT NULL,
+                guid_eci CHAR(32) NOT NULL,
+                date_heure_validite CHAR(14) NOT NULL,
+                FOREIGN KEY (id_int_cireg) REFERENCES pdt_cireg(id_int_cireg)
             );
         `);
+
+        // Index pour pdt_cireg_jour
+        this.db.run(`CREATE INDEX IF NOT EXISTS idx_cireg_jour_search 
+            ON pdt_cireg_jour(service_annuel, marche_depart, date_depart, nature);`);
+        
+        this.db.run(`CREATE INDEX IF NOT EXISTS idx_cireg_jour_guid 
+            ON pdt_cireg_jour(guid_eci);`);
+        
+        this.db.run(`CREATE INDEX IF NOT EXISTS idx_cireg_jour_foreign_key 
+            ON pdt_cireg_jour(id_int_cireg);`);
+
         this.db.run(`
             CREATE TABLE IF NOT EXISTS pdt_cireg (
                 id_int_cireg INTEGER PRIMARY KEY AUTOINCREMENT,
-                service_annuel TEXT,
-                marche_depart TEXT,
-                heure_depart TEXT,
-                nature TEXT,
-                regime_binaire TEXT,
-                empreinte_circulation TEXT
+                service_annuel CHAR(4) NOT NULL,
+                marche_depart CHAR(6) NOT NULL,
+                heure_depart CHAR(6) NOT NULL,
+                nature CHAR(1) NOT NULL,
+                regime_binaire CHAR(400) NOT NULL,
+                empreinte_circulation CHAR(64)
             );
         `);
+
+        // Index pour pdt_cireg
+        this.db.run(`CREATE INDEX IF NOT EXISTS idx_cireg_empreinte 
+            ON pdt_cireg(service_annuel, empreinte_circulation);`);
+        
+        this.db.run(`CREATE INDEX IF NOT EXISTS idx_cireg_marche 
+            ON pdt_cireg(marche_depart);`);
     }
 
     clearTables() {

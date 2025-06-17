@@ -211,7 +211,7 @@ class ECIProcessor {
                 eci.a1.heureDepart,
                 eci.a1.nature,
                 regimeBinaire,
-                eci.ae ? eci.ae.empreinte : null
+                eci.a1.empreinte_circulation
             ];
 
             await this.database.run(
@@ -369,7 +369,7 @@ class ECIProcessor {
              FROM pdt_cireg 
              WHERE service_annuel = ? 
              AND empreinte_circulation = ?`,
-            [eci.a1.serviceAnnuel, eci.ae ? eci.ae.empreinte : null]
+            [eci.a1.serviceAnnuel, eci.a1.empreinte_circulation]
         );
 
         let idCireg;
