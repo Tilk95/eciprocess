@@ -500,8 +500,8 @@ class ECIProcessor {
             if (!eci?.a1) continue;
             
             const a1 = eci.a1;
-            const cleCourante = `${a1.marche || ''}_${a1.dateDepart || ''}_${a1.nature || ''}`;
-            
+            const cleCourante = `${a1.marche || ''}_${a1.dateDepart || ''}_${a1.dateHeureValidite || ''}_${a1.nature || ''}`;
+
             if (cleCourante !== derniereCle && blocCourant.length > 0) {
                 blocs.push(blocCourant);
                 blocCourant = [];
