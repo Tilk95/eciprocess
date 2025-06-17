@@ -26,22 +26,13 @@ class ECIDatabase {
                 service_annuel CHAR(4) NOT NULL,
                 marche_depart CHAR(6) NOT NULL,
                 date_depart CHAR(8) NOT NULL,
+                heure_depart CHAR(6) NOT NULL,
                 nature CHAR(1) NOT NULL,
                 guid_eci CHAR(32) NOT NULL,
                 date_heure_validite CHAR(14) NOT NULL,
                 FOREIGN KEY (id_int_cireg) REFERENCES pdt_cireg(id_int_cireg)
             );
         `);
-
-        // Index pour pdt_cireg_jour
-        this.db.run(`CREATE INDEX IF NOT EXISTS idx_cireg_jour_search 
-            ON pdt_cireg_jour(service_annuel, marche_depart, date_depart, nature);`);
-        
-        this.db.run(`CREATE INDEX IF NOT EXISTS idx_cireg_jour_guid 
-            ON pdt_cireg_jour(guid_eci);`);
-        
-        this.db.run(`CREATE INDEX IF NOT EXISTS idx_cireg_jour_foreign_key 
-            ON pdt_cireg_jour(id_int_cireg);`);
 
         this.db.run(`
             CREATE TABLE IF NOT EXISTS pdt_cireg (
@@ -55,12 +46,19 @@ class ECIDatabase {
             );
         `);
 
+        // Index pour pdt_cireg_jour
+        this.db.run(`CREATE INDEX IF NOT EXISTS idx_cireg_jour_search 
+            ON pdt_cireg_jour(service_annuel, marche_depart, date_depart, nature);`);
+        
+        this.db.run(`CREATE INDEX IF NOT EXISTS idx_cireg_jour_guid 
+            ON pdt_cireg_jour(guid_eci);`);
+        
+        this.db.run(`CREATE INDEX IF NOT EXISTS idx_cireg_jour_foreign_key 
+            ON pdt_cireg_jour(id_int_cireg);`);
+
         // Index pour pdt_cireg
         this.db.run(`CREATE INDEX IF NOT EXISTS idx_cireg_empreinte 
             ON pdt_cireg(service_annuel, empreinte_circulation);`);
-        
-        this.db.run(`CREATE INDEX IF NOT EXISTS idx_cireg_marche 
-            ON pdt_cireg(marche_depart);`);
     }
 
     clearTables() {
