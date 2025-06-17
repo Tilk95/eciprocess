@@ -10,20 +10,15 @@
     <div class="container mx-auto px-4 py-8">
         <!-- Barre d'outils -->
         <div class="flex flex-wrap items-center gap-4 bg-white rounded-lg shadow p-4 mb-8">
-            <div class="flex gap-4 flex-wrap">
+            <div class="flex gap-4 flex-wrap items-center">
                 <button id="initDbBtn" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors">
                     Initialiser la BDD
                 </button>
                 <button id="viewDbBtn" class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded transition-colors">
                     Consulter la base
                 </button>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <div class="text-center">
                 <input type="file" id="eciFile" accept=".eci,.txt" class="hidden">
-                <label for="eciFile" class="inline-block px-6 py-3 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition-colors">
+                <label for="eciFile" class="inline-block px-4 py-2 bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700 transition-colors font-semibold">
                     Sélectionner un fichier ECI
                 </label>
             </div>
