@@ -146,6 +146,7 @@ Structures de BDD envisagées
         service_annuel
         marche_depart
         date_depart
+        heure_depart
         nature
         guid_eci
         date_heure_validite
@@ -308,6 +309,7 @@ FONCTION AJOUTER_UNE_CIRCULATION_JOUR(p_eci,p_id_pdt_cireg)
             service_annuel: p_eci.a1.serviceAnnuel,
             marche_depart: p_eci.a1.marcheDepart,
             date_depart: p_eci.a1.dateDepart,
+            heure_depart: p_eci.a1.heureDepart,
             nature: p_eci.a1.nature
 
             guid_eci: eci.a1.guidECI,

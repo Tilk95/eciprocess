@@ -259,6 +259,7 @@ class ECIProcessor {
                 'serviceAnnuel': eci.a1.serviceAnnuel,
                 'marche': eci.a1.marche,
                 'dateDepart': eci.a1.dateDepart,
+                'heureDepart': eci.a1.heureDepart,
                 'nature': eci.a1.nature,
                 'guidECI': eci.a1.guidECI,
                 'dateHeureValidite': eci.a1.dateHeureValidite
@@ -266,6 +267,7 @@ class ECIProcessor {
 
             for (const [champ, valeur] of Object.entries(champsRequis)) {
                 if (valeur === undefined || valeur === null) {
+                    console.error(`Champ requis manquant: ${champ}`);
                     return null;
                 }
             }
@@ -279,11 +281,13 @@ class ECIProcessor {
                 return null;
             }
 
+            // Préparation des paramètres dans le bon ordre
             const params = [
                 idCireg,
                 String(eci.a1.serviceAnnuel),
                 String(eci.a1.marche),
                 String(eci.a1.dateDepart),
+                String(eci.a1.heureDepart),
                 String(eci.a1.nature),
                 String(eci.a1.guidECI),
                 String(eci.a1.dateHeureValidite)
@@ -295,10 +299,11 @@ class ECIProcessor {
                     service_annuel,
                     marche_depart,
                     date_depart,
+                    heure_depart,
                     nature,
                     guid_eci,
                     date_heure_validite
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                 params
             );
 
@@ -328,6 +333,7 @@ class ECIProcessor {
 
             return lastId;
         } catch (error) {
+            console.error('Erreur dans ajouterUneCirculationJour:', error);
             return null;
         }
     }
