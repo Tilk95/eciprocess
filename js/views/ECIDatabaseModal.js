@@ -324,6 +324,18 @@
                                 pdt_cireg_jour
                             </button>
                         </li>
+                        <li class="mr-2" role="presentation">
+                            <button class="inline-flex items-center px-4 py-2 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 tab-button" 
+                                    id="tab-sql" 
+                                    data-target="content-sql"
+                                    role="tab">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 2h8v4H8z"/>
+                                </svg>
+                                Requête SQL
+                            </button>
+                        </li>
                     </ul>
                 </div>
 
@@ -335,6 +347,19 @@
                         </div>
                         <div id="content-cireg-jour" class="tab-pane hidden h-full">
                             <div id="tableCiregJour" class="h-full"></div>
+                        </div>
+                        <div id="content-sql" class="tab-pane hidden h-full p-6 bg-white">
+                            <form id="sqlQueryForm" class="mb-4 flex flex-row gap-2 items-start">
+                                <textarea id="sqlQueryInput" rows="3"
+                                    class="flex-1 p-2 border border-gray-300 rounded-md font-mono text-sm resize-y text-blue-700 bg-blue-50 focus:bg-blue-100"
+                                    placeholder="Écrivez votre requête SQL ici..."
+                                    autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                                    style="font-family: 'Fira Mono', 'Consolas', 'Menlo', 'Monaco', monospace;"
+                                ></textarea>
+                                <button type="submit" class="h-[42px] mt-1 px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition whitespace-nowrap">Exécuter</button>
+                            </form>
+                            <div id="sqlQueryError" class="text-red-600 mb-2 hidden"></div>
+                            <div id="sqlQueryResult"></div>
                         </div>
                     </div>
                 </div>
@@ -396,6 +421,97 @@
                 targetPane.classList.remove('hidden');
             });
         });
+
+        // --- Gestion du requêteur SQL ---
+        const sqlForm = modal.querySelector('#sqlQueryForm');
+        const sqlInput = modal.querySelector('#sqlQueryInput');
+        const sqlError = modal.querySelector('#sqlQueryError');
+        const sqlResult = modal.querySelector('#sqlQueryResult');
+        if (sqlForm && sqlInput && sqlResult) {
+            sqlForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                sqlError.classList.add('hidden');
+                sqlResult.innerHTML = '';
+                const query = sqlInput.value.trim();
+                if (!query) return;
+                try {
+                    let result = window.eciDb.select(query);
+                    if (!Array.isArray(result) || result.length === 0) {
+                        sqlResult.innerHTML = '<div class="text-gray-500 italic">Aucun résultat</div>';
+                        return;
+                    }
+                    // Affichage debug du nombre de résultats
+                    sqlResult.innerHTML = `<div class='text-xs text-blue-700 mb-1'>${result.length} résultat(s)</div>`;
+                    // Pagination
+                    let currentPage = 1;
+                    let itemsPerPage = 25;
+                    const itemsPerPageOptions = [25, 50, 100, 250];
+                    const totalPages = Math.ceil(result.length / itemsPerPage);
+                    let headers = Object.keys(result[0]);
+
+                    function renderSQLTable(page, perPage) {
+                        currentPage = page;
+                        itemsPerPage = perPage;
+                        const totalPages = Math.ceil(result.length / itemsPerPage);
+                        const start = (currentPage - 1) * itemsPerPage;
+                        const end = start + itemsPerPage;
+                        // Zone de navigation en haut
+                        let html = `<div class='flex flex-wrap justify-between items-center gap-4 mb-2'>`;
+                        html += `<div class='text-xs text-blue-700'>Affichage de ${start + 1} à ${Math.min(end, result.length)} sur ${result.length} enregistrements</div>`;
+                        html += `<div class='flex items-center gap-2'>`;
+                        html += `<label class='text-sm text-blue-900 mr-1'>Afficher</label>`;
+                        html += `<select class='sql-items-per-page px-2 py-1 border rounded text-sm mr-2'>`;
+                        html += itemsPerPageOptions.map(n => `<option value="${n}" ${n === itemsPerPage ? 'selected' : ''}>${n}</option>`).join('');
+                        html += `</select><span class='text-sm text-blue-900 mr-2'>par page</span>`;
+                        html += `<button type='button' class='sql-prev-page px-3 py-1 border border-blue-300 rounded text-blue-700 bg-white font-semibold ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-100'}' ${currentPage === 1 ? 'disabled' : ''}>&lt; Précédent</button>`;
+                        let maxVisiblePages = 5;
+                        let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                        if (endPage - startPage + 1 < maxVisiblePages) {
+                            startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                        }
+                        for (let i = startPage; i <= endPage; i++) {
+                            html += `<button type='button' class='sql-page-btn px-2 py-1 border rounded text-sm font-semibold mx-1 ${i === currentPage ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-100'}' data-page='${i}'>${i}</button>`;
+                        }
+                        html += `<button type='button' class='sql-next-page px-3 py-1 border border-blue-300 rounded text-blue-700 bg-white font-semibold ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-100'}' ${currentPage === totalPages ? 'disabled' : ''}>Suivant &gt;</button>`;
+                        html += `</div></div>`;
+                        // Zone scrollable pour les résultats
+                        html += `<div class="overflow-x-auto" style="max-height:400px;overflow-y:auto;">`;
+                        html += '<table class="min-w-full text-sm border-separate border-spacing-0"><thead><tr>';
+                        headers.forEach(h => {
+                            html += `<th class="px-4 py-2 text-left font-semibold text-gray-700 bg-gray-50 border-b">${h}</th>`;
+                        });
+                        html += '</tr></thead><tbody>';
+                        result.slice(start, end).forEach((row, idx) => {
+                            html += `<tr class="${(start + idx) % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">`;
+                            headers.forEach(h => {
+                                html += `<td class="px-4 py-2 border-b border-gray-200 whitespace-nowrap">${row[h] ?? ''}</td>`;
+                            });
+                            html += '</tr>';
+                        });
+                        html += '</tbody></table></div>';
+                        sqlResult.innerHTML = html;
+                        // Gestion des boutons
+                        const prevBtn = sqlResult.querySelector('.sql-prev-page');
+                        const nextBtn = sqlResult.querySelector('.sql-next-page');
+                        const pageBtns = sqlResult.querySelectorAll('.sql-page-btn');
+                        const itemsPerPageSelect = sqlResult.querySelector('.sql-items-per-page');
+                        if (prevBtn) prevBtn.onclick = () => { if (currentPage > 1) { renderSQLTable(currentPage - 1, itemsPerPage); } };
+                        if (nextBtn) nextBtn.onclick = () => { if (currentPage < totalPages) { renderSQLTable(currentPage + 1, itemsPerPage); } };
+                        if (pageBtns) pageBtns.forEach(btn => {
+                            btn.onclick = () => { const page = parseInt(btn.getAttribute('data-page')); renderSQLTable(page, itemsPerPage); };
+                        });
+                        if (itemsPerPageSelect) itemsPerPageSelect.onchange = (e) => {
+                            renderSQLTable(1, parseInt(e.target.value));
+                        };
+                    }
+                    renderSQLTable(currentPage, itemsPerPage);
+                } catch (err) {
+                    sqlError.textContent = 'Erreur SQL : ' + err.message;
+                    sqlError.classList.remove('hidden');
+                }
+            });
+        }
 
         // Activer le premier onglet par défaut
         tabButtons[0].classList.add('border-blue-600', 'text-blue-600');

@@ -1,4 +1,4 @@
 window.APP_INFO = {
     name: "Processus ECI",
-    version: "2.2.1"
+    version: "2.2.2"
 }; 
