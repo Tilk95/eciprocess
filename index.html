@@ -9,14 +9,15 @@
 <body class="bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8">
         <!-- Barre d'outils -->
-        <div id="toolbar" class="flex flex-wrap items-center gap-4 bg-white rounded-lg shadow p-4 mb-8">
-            <button id="initDbBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded transition-colors">
-                Initialiser la BDD
-            </button>
-            <button id="viewDbBtn" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded transition-colors">
-                Consulter la base
-            </button>
-            <!-- D'autres boutons pourront être ajoutés ici -->
+        <div class="flex flex-wrap items-center gap-4 bg-white rounded-lg shadow p-4 mb-8">
+            <div class="flex gap-4 flex-wrap">
+                <button id="initDbBtn" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors">
+                    Initialiser la BDD
+                </button>
+                <button id="viewDbBtn" class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded transition-colors">
+                    Consulter la base
+                </button>
+            </div>
         </div>
 
         <div class="bg-white rounded-lg shadow-md p-6 mb-8">
@@ -38,6 +39,7 @@
     <script src="js/appInfo.js"></script>
     <script src="js/db/ECIDatabase.js"></script>
     <script src="js/views/ECIDatabaseModal.js"></script>
+    <script src="js/views/IntegrationProgressModal.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
     <script src="js/parsers/ECIParser.js"></script>
     <script src="js/processors/ECIProcessor.js"></script>

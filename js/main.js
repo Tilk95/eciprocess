@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const fileInput = document.getElementById('eciFile');
     const eciParser = new ECIParser();
     const eciTableView = new ECITableView('fileContent');
+    const progressModal = new IntegrationProgressModal();
     let articlesCharges = null;
     
     // Initialiser la base de données
@@ -16,6 +17,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Créer le processeur ECI
     const eciProcessor = new ECIProcessor(window.eciDb);
+
+    // Configurer le gestionnaire de progression
+    eciProcessor.onProgress = (progressInfo) => {
+        if (progressInfo.phase === 'début') {
+            progressModal.show();
+            progressModal.updateProgress(progressInfo.message, 0);
+        } else if (progressInfo.phase === 'progression') {
+            progressModal.updateProgress(progressInfo.message, progressInfo.progress);
+        } else if (progressInfo.phase === 'fin') {
+            progressModal.updateProgress(progressInfo.message, 100);
+            setTimeout(() => {
+                progressModal.hide();
+            }, 1000);
+        }
+    };
 
     fileInput.addEventListener('change', async (event) => {
         console.log('Sélection d\'un fichier ECI');
@@ -114,6 +130,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <p class="font-bold">Erreur lors du traitement</p>
                             <p>${error.message}</p>
                         </div>`;
+                } finally {
+                    // Réactiver le bouton
+                    const btn = document.getElementById('processEciBtn');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        btn.textContent = 'Lancer l\'intégration en base de données';
+                    }
                 }
             });
 

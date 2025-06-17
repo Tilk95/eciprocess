@@ -48,62 +48,72 @@ class ECITableView {
     }
 
     showProgressModal() {
-        if (!this.progressModal) {
-            this.progressModal = document.createElement('div');
-            this.progressModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center';
-            this.progressModal.innerHTML = `
-                <div class="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
-                    <div class="text-center">
-                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                        <h3 class="text-lg font-medium text-gray-900 mt-4">Chargement en cours...</h3>
-                        <p class="text-sm text-gray-500 mt-2">Veuillez patienter pendant le traitement du fichier.</p>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(this.progressModal);
+        if (this.progressModal) {
+            this.hideProgressModal();
         }
+        this.progressModal = document.createElement('div');
+        this.progressModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50';
+        this.progressModal.innerHTML = `
+            <div class="relative bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
+                <div class="text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                    <h3 class="text-lg font-medium text-gray-900 mt-4">Chargement en cours...</h3>
+                    <p class="text-sm text-gray-500 mt-2">Veuillez patienter pendant le traitement du fichier.</p>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mt-4">
+                        <div class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-2">0%</p>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(this.progressModal);
     }
 
     hideProgressModal() {
-        if (this.progressModal) {
-            this.progressModal.remove();
-            this.progressModal = null;
+        if (this.progressModal && this.progressModal.parentNode) {
+            this.progressModal.parentNode.removeChild(this.progressModal);
         }
+        this.progressModal = null;
+    }
+
+    updateProgressModal(message, progress) {
+        if (!this.progressModal) return;
+        
+        const progressBar = this.progressModal.querySelector('.bg-blue-600');
+        const progressText = this.progressModal.querySelector('.text-gray-500.mt-2');
+        const messageText = this.progressModal.querySelector('.text-lg.font-medium');
+        
+        if (progressBar) progressBar.style.width = `${progress}%`;
+        if (progressText) progressText.textContent = `${progress}%`;
+        if (messageText) messageText.textContent = message;
     }
 
     setArticles(articles) {
-        this.showProgressModal();
+        // Trier les articles selon les critères spécifiés
+        this.articles = articles.sort((a, b) => {
+            // 1. Trier par marche
+            if (a.marche !== b.marche) {
+                return a.marche.localeCompare(b.marche);
+            }
+            
+            // 2. Puis par date de départ
+            if (a.dateDepart !== b.dateDepart) {
+                return a.dateDepart.localeCompare(b.dateDepart);
+            }
+            
+            // 3. Puis par date de validité
+            if (a.dateHeureValidite !== b.dateHeureValidite) {
+                return a.dateHeureValidite.localeCompare(b.dateHeureValidite);
+            }
+            
+            // 4. Enfin par nature
+            return a.nature.localeCompare(b.nature);
+        });
         
-        // Utiliser setTimeout pour permettre l'affichage de la modale
-        setTimeout(() => {
-            // Trier les articles selon les critères spécifiés
-            this.articles = articles.sort((a, b) => {
-                // 1. Trier par marche
-                if (a.marche !== b.marche) {
-                    return a.marche.localeCompare(b.marche);
-                }
-                
-                // 2. Puis par date de départ
-                if (a.dateDepart !== b.dateDepart) {
-                    return a.dateDepart.localeCompare(b.dateDepart);
-                }
-                
-                // 3. Puis par date de validité
-                if (a.dateHeureValidite !== b.dateHeureValidite) {
-                    return a.dateHeureValidite.localeCompare(b.dateHeureValidite);
-                }
-                
-                // 4. Enfin par nature
-                return a.nature.localeCompare(b.nature);
-            });
-            
-            this.filteredArticles = [...this.articles];
-            this.currentPage = 1;
-            this.totalPages = Math.ceil(this.filteredArticles.length / this.itemsPerPage);
-            this.render();
-            
-            this.hideProgressModal();
-        }, 0);
+        this.filteredArticles = [...this.articles];
+        this.currentPage = 1;
+        this.totalPages = Math.ceil(this.filteredArticles.length / this.itemsPerPage);
+        this.render();
     }
 
     toggleMarcheFilter(marche) {

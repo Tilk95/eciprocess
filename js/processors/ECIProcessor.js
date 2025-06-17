@@ -4,6 +4,7 @@ class ECIProcessor {
             throw new Error('La base de données est requise pour ECIProcessor');
         }
         this.database = database;
+        this.onProgress = null;
     }
 
     async verifierBaseDeDonnees() {
@@ -18,40 +19,33 @@ class ECIProcessor {
      * @returns {string} - La DDS au format 'YYYYMMDD'
      */
     construireDDS(serviceAnnuel) {
-        console.log(`\n📅 Calcul DDS pour service annuel: ${serviceAnnuel}`);
         
         // Extraire l'année du service (xxxx de SAxxxx)
         const annee = parseInt(serviceAnnuel);
         const anneePrecedente = annee - 1;
-        console.log(`   Année extraite: ${annee}, Année précédente: ${anneePrecedente}`);
         
         // Créer le 1er décembre de l'année précédente
         const premierDecembre = new Date(anneePrecedente, 11, 1); // Mois 11 = décembre
-        console.log(`   Premier décembre: ${premierDecembre.toISOString().split('T')[0]}`);
-        
+         
         // Trouver le premier samedi
         let premierSamedi = new Date(premierDecembre);
         while (premierSamedi.getDay() !== 6) { // 6 = samedi
             premierSamedi.setDate(premierSamedi.getDate() + 1);
         }
-        console.log(`   Premier samedi: ${premierSamedi.toISOString().split('T')[0]}`);
-        
+         
         // Trouver le deuxième samedi
         const deuxiemeSamedi = new Date(premierSamedi);
         deuxiemeSamedi.setDate(deuxiemeSamedi.getDate() + 7);
-        console.log(`   Deuxième samedi: ${deuxiemeSamedi.toISOString().split('T')[0]}`);
-        
+         
         // La DDS est le dimanche suivant le deuxième samedi
         const dds = new Date(deuxiemeSamedi);
         dds.setDate(dds.getDate() + 1);
-        console.log(`   DDS (dimanche): ${dds.toISOString().split('T')[0]}`);
-        
+         
         // Formater la date en YYYYMMDD
         const ddsFormatted = dds.getFullYear().toString() +
                String(dds.getMonth() + 1).padStart(2, '0') +
                String(dds.getDate()).padStart(2, '0');
         
-        console.log(`   DDS formatée: ${ddsFormatted}`);
         
         return ddsFormatted;
     }
@@ -438,12 +432,39 @@ class ECIProcessor {
      * @returns {Promise<void>}
      */
     async traiterFichierECI(ecis) {
+        if (this.onProgress) {
+            this.onProgress({
+                phase: 'début',
+                message: 'Début du traitement du fichier ECI',
+                total: ecis.length
+            });
+        }
+
         // Regrouper les ECI par bloc (même marche/date/nature)
         const blocs = this.regrouperEnBlocs(ecis);
         
+        let eciTraites = 0;
         // Traiter chaque bloc
         for (const bloc of blocs) {
             await this.traiterBlocECI(bloc);
+            eciTraites += bloc.length;
+            
+            if (this.onProgress) {
+                this.onProgress({
+                    phase: 'progression',
+                    message: `Traitement en cours... ${eciTraites}/${ecis.length} ECIs traités`,
+                    progress: Math.round((eciTraites / ecis.length) * 100)
+                });
+            }
+        }
+
+        if (this.onProgress) {
+            this.onProgress({
+                phase: 'fin',
+                message: 'Traitement terminé avec succès',
+                total: ecis.length,
+                traites: eciTraites
+            });
         }
     }
 
