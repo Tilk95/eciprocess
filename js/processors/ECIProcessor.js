@@ -88,18 +88,28 @@ class ECIProcessor {
         let idCiregJour = null;
 
         try {
-            // Vérifier que a1 a toutes les propriétés requises
+            // Vérifier que a1 est un objet valide
             if (!a1 || typeof a1 !== 'object') {
                 console.error('   ❌ Article A1 invalide:', a1);
                 return [false, null];
             }
 
-            const propriétésRequises = ['serviceAnnuel', 'marche', 'dateDepart', 'nature'];
+            // Définir les propriétés requises selon le type d'ECI
+            const propriétésRequises = ['serviceAnnuel', 'marche', 'dateDepart'];
+            if (a1.typeECI === 'P') {
+                propriétésRequises.push('nature');
+            }
+            
             const propriétésManquantes = propriétésRequises.filter(prop => !a1[prop]);
             
             if (propriétésManquantes.length > 0) {
                 console.error('   ❌ Propriétés manquantes dans A1:', propriétésManquantes.join(', '));
                 return [false, null];
+            }
+
+            // Pour les ECI de type S, on vérifie juste l'existence du GUID à supprimer
+            if (a1.typeECI === 'S') {
+                return [true, null];
             }
 
             // Rechercher la circulation jour existante
