@@ -8,44 +8,34 @@
         const end = start + itemsPerPage;
         const pageRows = rows.slice(start, end);
         const totalPages = Math.ceil(rows.length / itemsPerPage);
-
+        const itemsPerPageOptions = [25, 50, 100, 250];
         const headers = Object.keys(rows[0]);
-        let html = `
-            <div class="px-6 py-4 space-y-4 h-full flex flex-col">
-                <div class="flex items-center justify-between">
-                    <div class="text-sm text-gray-700">
-                        Affichage de ${start + 1} à ${Math.min(end, rows.length)} sur ${rows.length} enregistrements
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <select class="items-per-page px-3 py-1 border rounded text-sm">
-                            ${[25, 50, 100, 250].map(n => 
-                                `<option value="${n}" ${n === itemsPerPage ? 'selected' : ''}>${n} par page</option>`
-                            ).join('')}
-                        </select>
-                        <div class="flex space-x-2">
-                            <button class="prev-page px-3 py-1 border rounded ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}" 
-                                    ${currentPage === 1 ? 'disabled' : ''}>
-                                Précédent
-                            </button>
-                            <span class="px-3 py-1 text-sm">
-                                Page ${currentPage} sur ${totalPages}
-                            </span>
-                            <button class="next-page px-3 py-1 border rounded ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}"
-                                    ${currentPage === totalPages ? 'disabled' : ''}>
-                                Suivant
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex-1 overflow-auto min-h-0">
-                    <table class="min-w-full text-sm border-separate border-spacing-0">
-                        <thead class="sticky top-0 bg-white shadow-sm">
-                            <tr>`;
-
+        // Navigation en haut avec padding à gauche et à droite
+        let html = `<div class='flex flex-wrap justify-between items-center gap-4 mb-2 px-6' style='padding-left:24px;padding-right:24px;'>`;
+        html += `<div class='text-xs text-blue-700'>Affichage de ${start + 1} à ${Math.min(end, rows.length)} sur ${rows.length} enregistrements</div>`;
+        html += `<div class='flex items-center gap-2'>`;
+        html += `<label class='text-sm text-blue-900 mr-1'>Afficher</label>`;
+        html += `<select class='items-per-page px-2 py-1 border rounded text-sm mr-2'>`;
+        html += itemsPerPageOptions.map(n => `<option value="${n}" ${n === itemsPerPage ? 'selected' : ''}>${n}</option>`).join('');
+        html += `</select><span class='text-sm text-blue-900 mr-2'>par page</span>`;
+        html += `<button type='button' class='prev-page px-3 py-1 border border-blue-300 rounded text-blue-700 bg-white font-semibold ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-100'}' ${currentPage === 1 ? 'disabled' : ''}>&lt; Précédent</button>`;
+        let maxVisiblePages = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+        let endPageNum = Math.min(totalPages, startPage + maxVisiblePages - 1);
+        if (endPageNum - startPage + 1 < maxVisiblePages) {
+            startPage = Math.max(1, endPageNum - maxVisiblePages + 1);
+        }
+        for (let i = startPage; i <= endPageNum; i++) {
+            html += `<button type='button' class='page-btn px-2 py-1 border rounded text-sm font-semibold mx-1 ${i === currentPage ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-100'}' data-page='${i}'>${i}</button>`;
+        }
+        html += `<button type='button' class='next-page px-3 py-1 border border-blue-300 rounded text-blue-700 bg-white font-semibold ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-100'}' ${currentPage === totalPages ? 'disabled' : ''}>Suivant &gt;</button>`;
+        html += `</div></div>`;
+        // Zone scrollable pour les résultats avec padding à gauche et à droite
+        html += `<div class="flex-1 overflow-x-auto min-h-0 px-6" style="max-height:400px;overflow-y:auto;padding-left:24px;padding-right:24px;">`;
+        html += '<table class="min-w-full text-sm border-separate border-spacing-0"><thead class="sticky top-0 bg-white shadow-sm"><tr>';
         headers.forEach(h => {
             html += `<th class="px-4 py-2 text-left font-semibold text-gray-700 bg-gray-50 border-b">${h}</th>`;
         });
-
         html += '</tr></thead><tbody>';
         pageRows.forEach((row, idx) => {
             html += `<tr class="${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50">`;
@@ -53,8 +43,6 @@
                 let cellContent = row[h] ?? '';
                 let cellClass = 'px-4 py-2 border-b border-gray-200 whitespace-nowrap';
                 let cellAttrs = '';
-                
-                // Traitement spécial pour le régime binaire
                 if (h === 'regime_binaire' && cellContent) {
                     const onesCount = (cellContent.match(/1/g) || []).length;
                     const firstFour = cellContent.substring(0, 4);
@@ -63,12 +51,11 @@
                     cellClass += ' cursor-pointer text-blue-600 hover:text-blue-800';
                     cellAttrs = `data-row='${JSON.stringify(row).replace(/'/g, "&#39;")}'`;
                 }
-                
                 html += `<td class="${cellClass}" ${cellAttrs}>${cellContent}</td>`;
             });
             html += '</tr>';
         });
-        html += '</tbody></table></div></div>';
+        html += '</tbody></table></div>';
         return html;
     }
 
