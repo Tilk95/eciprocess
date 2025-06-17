@@ -234,8 +234,8 @@
 
         // Variables de pagination pour chaque table
         const paginationState = {
-            cireg: { currentPage: 1, itemsPerPage: 25, data: [] },
-            ciregJour: { currentPage: 1, itemsPerPage: 25, data: [] }
+            cireg: { currentPage: 1, itemsPerPage: 25, data: [], filteredData: [] },
+            ciregJour: { currentPage: 1, itemsPerPage: 25, data: [], filteredData: [] }
         };
 
         // Créer la modale
@@ -282,6 +282,20 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                             </svg>
                         </button>
+                    </div>
+                </div>
+
+                <!-- Barre de recherche -->
+                <div class="px-6 py-3 bg-gray-50 border-b border-gray-200">
+                    <div class="relative">
+                        <input type="text" 
+                               id="marcheSearchInput" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Rechercher une marche..."
+                               autocomplete="off">
+                        <div id="marcheSearchResults" 
+                             class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg hidden">
+                        </div>
                     </div>
                 </div>
 
@@ -394,13 +408,105 @@
             updateTables();
         }
 
+        // Gestionnaire de recherche
+        const searchInput = modal.querySelector('#marcheSearchInput');
+        const searchResults = modal.querySelector('#marcheSearchResults');
+        let searchTimeout = null;
+
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.trim();
+            
+            // Effacer le timeout précédent
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+
+            // Masquer les résultats si la recherche est vide
+            if (!searchTerm) {
+                searchResults.classList.add('hidden');
+                paginationState.cireg.filteredData = paginationState.cireg.data;
+                paginationState.ciregJour.filteredData = paginationState.ciregJour.data;
+                updateTable('cireg');
+                updateTable('ciregJour');
+                return;
+            }
+
+            // Attendre 300ms après la dernière frappe avant de lancer la recherche
+            searchTimeout = setTimeout(() => {
+                // Rechercher les marches correspondantes
+                const uniqueMarches = new Set();
+                paginationState.cireg.data.forEach(row => {
+                    if (row.marche_depart.toLowerCase().includes(searchTerm.toLowerCase())) {
+                        uniqueMarches.add(row.marche_depart);
+                    }
+                });
+
+                // Afficher les résultats de l'autocomplete
+                if (uniqueMarches.size > 0) {
+                    searchResults.innerHTML = Array.from(uniqueMarches)
+                        .map(marche => `
+                            <div class="px-4 py-2 hover:bg-gray-100 cursor-pointer" data-marche="${marche}">
+                                ${marche}
+                            </div>
+                        `).join('');
+                    searchResults.classList.remove('hidden');
+
+                    // Ajouter les gestionnaires d'événements pour les résultats
+                    searchResults.querySelectorAll('div').forEach(div => {
+                        div.addEventListener('click', () => {
+                            const selectedMarche = div.dataset.marche;
+                            searchInput.value = selectedMarche;
+                            searchResults.classList.add('hidden');
+                            filterTables(selectedMarche);
+                        });
+                    });
+                } else {
+                    searchResults.classList.add('hidden');
+                }
+
+                // Filtrer les tables avec le terme de recherche actuel
+                filterTables(searchTerm);
+            }, 300);
+        });
+
+        // Fermer les résultats de recherche lors du clic en dehors
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.classList.add('hidden');
+            }
+        });
+
+        function filterTables(searchTerm) {
+            const term = searchTerm.toLowerCase();
+            
+            // Filtrer les données pour pdt_cireg
+            paginationState.cireg.filteredData = paginationState.cireg.data.filter(row => 
+                row.marche_depart.toLowerCase().includes(term)
+            );
+            
+            // Filtrer les données pour pdt_cireg_jour
+            paginationState.ciregJour.filteredData = paginationState.ciregJour.data.filter(row => 
+                row.marche_depart.toLowerCase().includes(term)
+            );
+
+            // Réinitialiser la pagination
+            paginationState.cireg.currentPage = 1;
+            paginationState.ciregJour.currentPage = 1;
+
+            // Mettre à jour l'affichage
+            updateTable('cireg');
+            updateTable('ciregJour');
+        }
+
         function updateTables() {
             const rowsJour = window.eciDb.select('SELECT * FROM pdt_cireg_jour');
             const rowsCireg = window.eciDb.select('SELECT * FROM pdt_cireg');
             
             // Stocker les données complètes
             paginationState.cireg.data = rowsCireg;
+            paginationState.cireg.filteredData = rowsCireg;
             paginationState.ciregJour.data = rowsJour;
+            paginationState.ciregJour.filteredData = rowsJour;
 
             // Mettre à jour les deux tables
             updateTable('cireg');
@@ -461,7 +567,7 @@
             const state = paginationState[tableId];
             const tableElement = document.getElementById(`table${tableId.charAt(0).toUpperCase() + tableId.slice(1)}`);
             if (tableElement) {
-                tableElement.innerHTML = renderTable(state.data, state.currentPage, state.itemsPerPage);
+                tableElement.innerHTML = renderTable(state.filteredData || state.data, state.currentPage, state.itemsPerPage);
                 attachEventHandlers(tableId);
             }
         }
