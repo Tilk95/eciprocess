@@ -417,6 +417,9 @@ class ECIProcessor {
                         await this.traiterECITypeSupprime(article.guidECIASupprimer);
                     }
                 }
+                
+                // Permettre à l'interface de se rafraîchir
+                await new Promise(resolve => setTimeout(resolve, 0));
             }
 
             await this.database.run('COMMIT');
@@ -438,6 +441,9 @@ class ECIProcessor {
                 message: 'Début du traitement du fichier ECI',
                 total: ecis.length
             });
+            
+            // Permettre à l'interface de se rafraîchir
+            await new Promise(resolve => setTimeout(resolve, 100));
         }
 
         // Regrouper les ECI par bloc (même marche/date/nature)
@@ -455,6 +461,9 @@ class ECIProcessor {
                     message: `Traitement en cours... ${eciTraites}/${ecis.length} ECIs traités`,
                     progress: Math.round((eciTraites / ecis.length) * 100)
                 });
+                
+                // Permettre à l'interface de se rafraîchir
+                await new Promise(resolve => setTimeout(resolve, 0));
             }
         }
 
