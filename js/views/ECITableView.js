@@ -308,7 +308,7 @@ class ECITableView {
             heureDepart: article.heureDepart,
             cleAppariement: article.cleAppariement,
             guidECI: article.guidECI,
-            dateDebutValidite: article.dateDebutValidite,
+            dateHeureValidite: article.dateHeureValidite,
             nature: article.nature,
             typeECI: article.typeECI,
             guidPH: article.guidPH,
@@ -316,7 +316,7 @@ class ECITableView {
             famille: article.famille,
             guidECIASupprimer: article.guidECIASupprimer,
             serviceAnnuel: article.serviceAnnuel,
-            empreinteCirculation: article.typeECI === 'P' ? article.empreinte_circulation : ''
+            empreinte_circulation: article.empreinte_circulation
         };
 
         // Colonnes à centrer
