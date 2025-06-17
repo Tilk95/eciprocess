@@ -23,7 +23,7 @@ class ECITableView {
             { id: 'heureDepart', label: 'Heure Départ', visible: true, format: 'time' },
             { id: 'cleAppariement', label: 'Clé Appariement', visible: false },
             { id: 'guidECI', label: 'GUID ECI', visible: true, format: 'guid' },
-            { id: 'dateDebutValidite', label: 'Date Validité', visible: true, format: 'datetime' },
+            { id: 'dateHeureValidite', label: 'Date Validité', visible: true, format: 'datetime' },
             { id: 'nature', label: 'Nature', visible: true },
             { id: 'typeECI', label: 'Type ECI', visible: true },
             { id: 'guidPH', label: 'GUID PH', visible: false, format: 'guid' },
@@ -31,7 +31,7 @@ class ECITableView {
             { id: 'famille', label: 'Famille', visible: true },
             { id: 'guidECIASupprimer', label: 'GUID ECI à Supprimer', visible: true, format: 'guid' },
             { id: 'serviceAnnuel', label: 'Service Annuel', visible: true },
-            { id: 'empreinteCirculation', label: 'Empreinte Circulation', visible: true, format: 'guid' }
+            { id: 'empreinte_circulation', label: 'Empreinte Circulation', visible: true, format: 'guid' }
         ];
 
         // Couleurs pour les groupes
@@ -596,5 +596,29 @@ class ECITableView {
         });
         thead.appendChild(headerRow);
         return thead;
+    }
+
+    updateTable(articles) {
+        if (!Array.isArray(articles)) {
+            console.error('Articles doit être un tableau');
+            return;
+        }
+
+        this.articles = articles.map(eci => {
+            if (!eci?.a1) {
+                console.error('Structure ECI invalide:', eci);
+                return null;
+            }
+
+            const a1 = eci.a1;
+            return {
+                ...a1,
+                empreinte: eci.ae ? eci.ae.empreinte : null
+            };
+        }).filter(article => article !== null);
+
+        this.filteredArticles = [...this.articles];
+        this.currentPage = 1;
+        this.renderTable();
     }
 } 

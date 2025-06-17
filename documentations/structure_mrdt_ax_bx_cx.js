@@ -9,7 +9,7 @@ window.structure_article_A1 = [
     ["heureDepart",        16,   6, "string",   "", "", "", "HHMMSS"],
     ["CleAppariement",     22,  12, "String", "", "", "", ""],
     ["guidECI",            34,  32, "String", "", "", "", ""],
-    ["dateDebutValidité",  66,  14, "String", "", "", "", ""],
+    ["dateHeureValidite",  66,  14, "String", "", "", "", ""],
     ["nature",             80,   1, "String", "", "", "", ""],
     ["typeECI",            81,   1, "String", "", "", "", ""],
     ["guidPH",             82,  32, "String", "", "", "", ""],

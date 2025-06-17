@@ -1,25 +1,25 @@
 class ECIReader {
     constructor() {
-        this.content = null;
+        this.parser = new ECIParser();
+        this.processor = new ECIProcessor();
     }
 
     async readFile(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            
-            reader.onload = (event) => {
-                this.content = event.target.result;
-                console.log('Fichier lu avec succès:', this.content.substring(0, 100) + '...');
-                resolve(this.content);
-            };
-            
-            reader.onerror = (error) => {
-                console.error('Erreur lors de la lecture du fichier:', error);
-                reject(error);
-            };
-            
-            reader.readAsText(file);
-        });
+        try {
+            // Lecture et parsing du fichier
+            const ecis = await this.parser.parseFile(file);
+            if (!ecis || ecis.length === 0) {
+                console.error('Erreur: Aucun ECI trouvé dans le fichier');
+                return;
+            }
+
+            // Traitement des ECIs
+            await this.processor.traiterFichierECI(ecis);
+
+        } catch (error) {
+            console.error('Erreur lors de la lecture du fichier:', error);
+            throw error;
+        }
     }
 
     getContent() {
@@ -31,8 +31,6 @@ class ECIReader {
     }
 
     parseA1Article(line) {
-        console.log('Tentative de parsing A1:', line);
-        
         try {
             const article = {
                 type: 'A1',
@@ -52,7 +50,6 @@ class ECIReader {
                 serviceAnnuel: this.extractField(line, 180, 4),
                 empreinte_circulation: null // Une seule empreinte possible
             };
-            console.log('Article A1 parsé avec succès:', article);
             return article;
         } catch (error) {
             console.error('Erreur lors du parsing de l\'article A1:', error);
@@ -61,15 +58,12 @@ class ECIReader {
     }
 
     parseAEArticle(line) {
-        console.log('Tentative de parsing AE:', line);
-        
         try {
             const article = {
                 type: 'AE',
                 typeArticle: this.extractField(line, 0, 2),
                 empreinte: this.extractField(line, 2, 64)
             };
-            console.log('Article AE parsé avec succès:', article);
             return article;
         } catch (error) {
             console.error('Erreur lors du parsing de l\'article AE:', error);
@@ -79,14 +73,10 @@ class ECIReader {
 
     filterAndParseArticles() {
         if (!this.content) {
-            console.warn('Aucun contenu à parser');
             return [];
         }
         
-        console.log('Début du parsing des articles...');
         const lines = this.content.split('\n');
-        console.log('Nombre total de lignes:', lines.length);
-        
         const parsedArticles = [];
         let currentA1 = null;
         
@@ -109,13 +99,11 @@ class ECIReader {
             }
         }
         
-        console.log('Nombre d\'articles A1 parsés:', parsedArticles.length);
         return parsedArticles;
     }
 
     formatArticleForDisplay(article) {
         if (!article) {
-            console.warn('Tentative de formatage d\'un article null');
             return '';
         }
 
@@ -152,16 +140,13 @@ class ECIReader {
     }
 
     getFormattedContent() {
-        console.log('Génération du contenu formaté...');
         const articles = this.filterAndParseArticles();
-        console.log('Articles à formater:', articles.length);
         
         if (articles.length === 0) {
             return 'Aucun article A1 trouvé dans le fichier.';
         }
         
         const formattedContent = articles.map(article => this.formatArticleForDisplay(article)).join('\n\n');
-        console.log('Contenu formaté généré:', formattedContent.substring(0, 100) + '...');
         return formattedContent;
     }
 } 

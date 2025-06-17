@@ -3,6 +3,30 @@ class ECIParser {
         this.content = null;
     }
 
+    async parseFile(file) {
+        try {
+            // Lire le contenu du fichier
+            const content = await this.readFile(file);
+            if (!content) {
+                console.error('Erreur: Fichier vide');
+                return null;
+            }
+
+            // Découper le contenu en lignes
+            const lines = content.split('\n');
+            if (lines.length === 0) {
+                console.error('Erreur: Aucune ligne trouvée dans le fichier');
+                return null;
+            }
+
+            // Parser les ECIs
+            return this.parseECIs(lines);
+        } catch (error) {
+            console.error('Erreur lors du parsing du fichier:', error);
+            throw error;
+        }
+    }
+
     async readFile(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -20,6 +44,46 @@ class ECIParser {
         });
     }
 
+    parseECIs(lines) {
+        const ecis = [];
+        let currentECI = null;
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            const articleType = line.substring(0, 2);
+
+            switch (articleType) {
+                case 'A1':
+                    if (currentECI) {
+                        ecis.push(currentECI);
+                    }
+                    currentECI = this.parseA1Article(line);
+                    break;
+                case 'AE':
+                    if (currentECI) {
+                        currentECI.ae = this.parseAEArticle(line);
+                    }
+                    break;
+                case 'B1':
+                    if (!currentECI.b1) currentECI.b1 = [];
+                    currentECI.b1.push(this.parseB1(line));
+                    break;
+                case 'C1':
+                    if (!currentECI.c1) currentECI.c1 = [];
+                    currentECI.c1.push(this.parseC1(line));
+                    break;
+            }
+        }
+
+        if (currentECI) {
+            ecis.push(currentECI);
+        }
+
+        return ecis;
+    }
+
     extractField(line, start, length) {
         return line.substring(start, start + length).trim();
     }
@@ -34,7 +98,7 @@ class ECIParser {
                 heureDepart: this.extractField(line, 16, 6),
                 cleAppariement: this.extractField(line, 22, 12),
                 guidECI: this.extractField(line, 34, 32),
-                dateDebutValidite: this.extractField(line, 66, 14),
+                dateHeureValidite: this.extractField(line, 66, 14),
                 nature: this.extractField(line, 80, 1),
                 typeECI: this.extractField(line, 81, 1),
                 guidPH: this.extractField(line, 82, 32),
@@ -45,6 +109,7 @@ class ECIParser {
                 empreinte_circulation: null
             };
         } catch (error) {
+            console.error('Erreur lors du parsing de l\'article A1:', error);
             return null;
         }
     }
@@ -57,8 +122,21 @@ class ECIParser {
                 empreinte: this.extractField(line, 2, 64)
             };
         } catch (error) {
+            console.error('Erreur lors du parsing de l\'article AE:', error);
             return null;
         }
+    }
+
+    parseB1(line) {
+        return {
+            data: line.substring(2)
+        };
+    }
+
+    parseC1(line) {
+        return {
+            data: line.substring(2)
+        };
     }
 
     parseArticles() {
@@ -67,11 +145,11 @@ class ECIParser {
         const lines = this.content.split('\n');
         const parsedArticles = [];
         let currentA1 = null;
-        
+
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
-            
+
             if (line.startsWith('A1')) {
                 const parsedArticle = this.parseA1Article(line);
                 if (parsedArticle) {
