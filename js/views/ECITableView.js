@@ -588,7 +588,7 @@ class ECITableView {
                 let sortNumber = '';
                 if (column.id === 'marche') sortNumber = '1';
                 else if (column.id === 'dateDepart') sortNumber = '2';
-                else if (column.id === 'dateDebutValidite') sortNumber = '3';
+                else if (column.id === 'dateHeureValidite') sortNumber = '3';
                 else if (column.id === 'nature') sortNumber = '4';
                 if (sortNumber) {
                     label += ` <sup class=\"align-super\"><span class=\"inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 text-blue-600 text-xs font-bold\">${sortNumber}</span></sup>`;
