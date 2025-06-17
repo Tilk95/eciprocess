@@ -76,21 +76,24 @@ class ECITableView {
         
         // Utiliser setTimeout pour permettre l'affichage de la modale
         setTimeout(() => {
-            // Trier les articles
+            // Trier les articles selon les critères spécifiés
             this.articles = articles.sort((a, b) => {
-                // Trier par marché
+                // 1. Trier par marche
                 if (a.marche !== b.marche) {
                     return a.marche.localeCompare(b.marche);
                 }
-                // Puis par date de départ
+                
+                // 2. Puis par date de départ
                 if (a.dateDepart !== b.dateDepart) {
                     return a.dateDepart.localeCompare(b.dateDepart);
                 }
-                // Puis par date de début de validité
-                if (a.dateDebutValidite !== b.dateDebutValidite) {
-                    return a.dateDebutValidite.localeCompare(b.dateDebutValidite);
+                
+                // 3. Puis par date de validité
+                if (a.dateHeureValidite !== b.dateHeureValidite) {
+                    return a.dateHeureValidite.localeCompare(b.dateHeureValidite);
                 }
-                // Enfin par nature
+                
+                // 4. Enfin par nature
                 return a.nature.localeCompare(b.nature);
             });
             
