@@ -87,29 +87,48 @@ class ECIProcessor {
         let isCandidat = false;
         let idCiregJour = null;
 
-        // Rechercher la circulation jour existante
-        const ciregJour = await this.database.select(
-            `SELECT id_int_cireg_jour, date_heure_validite, marche_depart, date_depart, guid_eci 
-             FROM pdt_cireg_jour 
-             WHERE service_annuel = ? 
-             AND marche_depart = ? 
-             AND date_depart = ? 
-             AND nature = ?`,
-            [a1.serviceAnnuel, a1.marche, a1.dateDepart, a1.nature]
-        );
-
-        if (ciregJour.length > 0) {
-            // Vérifier la date de validité
-            if (ciregJour[0].date_heure_validite < a1.dateHeureValidite) {
-                isCandidat = true;
-                idCiregJour = ciregJour[0].id_int_cireg_jour;
+        try {
+            // Vérifier que a1 a toutes les propriétés requises
+            if (!a1 || typeof a1 !== 'object') {
+                console.error('   ❌ Article A1 invalide:', a1);
+                return [false, null];
             }
-        } else {
-            // Pas de circulation jour trouvée
-            isCandidat = true;
-        }
 
-        return [isCandidat, idCiregJour];
+            const propriétésRequises = ['serviceAnnuel', 'marche', 'dateDepart', 'nature'];
+            const propriétésManquantes = propriétésRequises.filter(prop => !a1[prop]);
+            
+            if (propriétésManquantes.length > 0) {
+                console.error('   ❌ Propriétés manquantes dans A1:', propriétésManquantes.join(', '));
+                return [false, null];
+            }
+
+            // Rechercher la circulation jour existante
+            const ciregJour = await this.database.select(
+                `SELECT id_int_cireg_jour, date_heure_validite, marche_depart, date_depart, guid_eci 
+                 FROM pdt_cireg_jour 
+                 WHERE service_annuel = ? 
+                 AND marche_depart = ? 
+                 AND date_depart = ? 
+                 AND nature = ?`,
+                [a1.serviceAnnuel, a1.marche, a1.dateDepart, a1.nature]
+            );
+
+            if (ciregJour.length > 0) {
+                // Vérifier la date de validité
+                if (ciregJour[0].date_heure_validite < a1.dateHeureValidite) {
+                    isCandidat = true;
+                    idCiregJour = ciregJour[0].id_int_cireg_jour;
+                }
+            } else {
+                // Pas de circulation jour trouvée
+                isCandidat = true;
+            }
+
+            return [isCandidat, idCiregJour];
+        } catch (error) {
+            console.error('   ❌ Erreur lors de la vérification du candidat:', error);
+            throw error;
+        }
     }
 
     /**
@@ -407,32 +426,46 @@ class ECIProcessor {
         await this.verifierBaseDeDonnees();
         
         try {
-            // Début de la transaction
+            console.log('\n   🔒 Début de la transaction pour le bloc');
             await this.database.run('BEGIN TRANSACTION');
 
             for (const eci of bloc) {
+                // S'assurer que nous avons un objet ECI valide avec la propriété a1
+                const article = eci.a1 || eci;
+                console.log(`\n   📝 Traitement ECI - Marche: ${article.marche}, Type: ${article.typeECI}`);
+
+                // Créer un objet avec la structure attendue
+                const eciNormalise = {
+                    a1: article
+                };
+                
                 // Vérifier si l'ECI est candidat
-                const [isCandidat, idCiregJour] = await this.isECICandidat(eci.a1);
+                const [isCandidat, idCiregJour] = await this.isECICandidat(eciNormalise.a1);
+                console.log(`   🔍 ECI Candidat: ${isCandidat}, ID Cireg Jour existant: ${idCiregJour}`);
 
                 if (isCandidat) {
                     const contexte = {
                         a_id_int_cireg_jour: idCiregJour
                     };
 
-                    if (eci.a1.typeECI === 'P') {
-                        await this.traiterECITypePlanifie(eci, contexte);
-                    } else if (eci.a1.typeECI === 'S') {
-                        await this.traiterECITypeSupprime(eci.a1.guidECIASupprimer);
+                    if (article.typeECI === 'P') {
+                        console.log('   📥 Traitement ECI Planifié');
+                        await this.traiterECITypePlanifie(eciNormalise, contexte);
+                    } else if (article.typeECI === 'S') {
+                        console.log('   🗑️ Traitement ECI Supprimé');
+                        await this.traiterECITypeSupprime(article.guidECIASupprimer);
                     }
+                } else {
+                    console.log('   ⏭️ ECI ignoré car non candidat');
                 }
             }
 
-            // Commit de la transaction
+            console.log('   ✅ Commit de la transaction');
             await this.database.run('COMMIT');
         } catch (error) {
-            // Rollback en cas d'erreur
+            console.error('   ❌ Erreur pendant le traitement:', error);
+            console.error('   📚 Stack trace:', error.stack);
             await this.database.run('ROLLBACK');
-            console.error('Erreur lors du traitement du bloc ECI:', error);
             throw error;
         }
     }
