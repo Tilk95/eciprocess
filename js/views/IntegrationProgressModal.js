@@ -24,6 +24,7 @@ class IntegrationProgressModal {
                         <div class="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-in-out" style="width: 0%"></div>
                     </div>
                     <p class="text-sm text-gray-500 mt-2" id="integration-percent">0%</p>
+                    <p class="text-sm text-gray-500 mt-2" id="integration-elapsed"></p>
                 </div>
             </div>
         `;
@@ -50,13 +51,14 @@ class IntegrationProgressModal {
         }
     }
 
-    updateProgress(message, progress) {
+    updateProgress(message, progress, elapsedFormatted) {
         if (!this.modal) return;
 
         requestAnimationFrame(() => {
             const statusElement = this.modal.querySelector('#integration-status');
             const progressBar = this.modal.querySelector('.bg-blue-600');
             const percentElement = this.modal.querySelector('#integration-percent');
+            const elapsedElement = this.modal.querySelector('#integration-elapsed');
 
             if (statusElement) statusElement.textContent = message;
             if (progressBar) {
@@ -67,6 +69,7 @@ class IntegrationProgressModal {
                 }
             }
             if (percentElement) percentElement.textContent = `${progress}%`;
+            if (elapsedElement) elapsedElement.textContent = elapsedFormatted ? `Temps écoulé : ${elapsedFormatted}` : '';
         });
     }
 }

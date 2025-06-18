@@ -22,11 +22,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     eciProcessor.onProgress = (progressInfo) => {
         if (progressInfo.phase === 'début') {
             progressModal.show();
-            progressModal.updateProgress(progressInfo.message, 0);
+            progressModal.updateProgress(progressInfo.message, 0, progressInfo.elapsedFormatted);
         } else if (progressInfo.phase === 'progression') {
-            progressModal.updateProgress(progressInfo.message, progressInfo.progress);
+            progressModal.updateProgress(progressInfo.message, progressInfo.progress, progressInfo.elapsedFormatted);
         } else if (progressInfo.phase === 'fin') {
-            progressModal.updateProgress(progressInfo.message, 100);
+            progressModal.updateProgress(progressInfo.message, 100, progressInfo.elapsedFormatted);
             setTimeout(() => {
                 progressModal.hide();
             }, 1000);

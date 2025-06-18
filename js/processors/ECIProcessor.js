@@ -5,6 +5,10 @@ class ECIProcessor {
         }
         this.database = database;
         this.onProgress = null;
+        // Cache pour les DDS calculées (serviceAnnuel -> DDS)
+        this.ddsCache = new Map();
+        // Cache pour les quantièmes calculés (clé: serviceAnnuel|dateDepart)
+        this.quantiemeCache = new Map();
     }
 
     async verifierBaseDeDonnees() {
@@ -15,10 +19,14 @@ class ECIProcessor {
 
     /**
      * Calcule la Date de Début de Service (DDS) pour un service annuel donné
-     * @param {string} serviceAnnuel - Le service annuel au format 'SAxxxx'
+     * @param {string} serviceAnnuel - Le service annuel au format 'xxxx'
      * @returns {string} - La DDS au format 'YYYYMMDD'
      */
     construireDDS(serviceAnnuel) {
+        // Vérifier si la DDS est déjà en cache
+        if (this.ddsCache.has(serviceAnnuel)) {
+            return this.ddsCache.get(serviceAnnuel);
+        }
         
         // Extraire l'année du service (xxxx de SAxxxx)
         const annee = parseInt(serviceAnnuel);
@@ -46,6 +54,8 @@ class ECIProcessor {
                String(dds.getMonth() + 1).padStart(2, '0') +
                String(dds.getDate()).padStart(2, '0');
         
+        // Mettre en cache le résultat
+        this.ddsCache.set(serviceAnnuel, ddsFormatted);
         
         return ddsFormatted;
     }
@@ -57,6 +67,11 @@ class ECIProcessor {
      * @returns {number} - Le quantième (position dans le régime binaire)
      */
     calculerQuantieme(serviceAnnuel, dateDepart) {
+        // Utilisation du cache
+        const cacheKey = `${serviceAnnuel}|${dateDepart}`;
+        if (this.quantiemeCache.has(cacheKey)) {
+            return this.quantiemeCache.get(cacheKey);
+        }
         const dds = this.construireDDS(serviceAnnuel);
         
         // Convertir les dates en objets Date
@@ -77,6 +92,8 @@ class ECIProcessor {
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         const quantieme = diffDays + 1; // +1 car le premier jour est le quantième 1
         
+        // Mise en cache du résultat
+        this.quantiemeCache.set(cacheKey, quantieme);
         return quantieme;
     }
 
@@ -110,12 +127,13 @@ class ECIProcessor {
             }
 
             const ciregJour = await this.database.select(
-                `SELECT id_int_cireg_jour, date_heure_validite, marche_depart, date_depart, guid_eci 
+                `SELECT id_int_cireg_jour, date_heure_validite 
                  FROM pdt_cireg_jour 
                  WHERE service_annuel = ? 
                  AND marche_depart = ? 
                  AND date_depart = ? 
-                 AND nature = ?`,
+                 AND nature = ?
+                 LIMIT 1`,
                 [a1.serviceAnnuel, a1.marche, a1.dateDepart, a1.nature]
             );
 
@@ -273,7 +291,7 @@ class ECIProcessor {
             }
 
             const cireg = await this.database.select(
-                'SELECT * FROM pdt_cireg WHERE id_int_cireg = ?',
+                'SELECT regime_binaire FROM pdt_cireg WHERE id_int_cireg = ? limit 1',
                 [idCireg]
             );
 
@@ -318,7 +336,7 @@ class ECIProcessor {
             const lastId = result[0].lastId;
 
             const quantieme = this.calculerQuantieme(
-                cireg[0].service_annuel,
+                eci.a1.serviceAnnuel,
                 eci.a1.dateDepart
             );
 
@@ -374,7 +392,8 @@ class ECIProcessor {
             `SELECT id_int_cireg 
              FROM pdt_cireg 
              WHERE service_annuel = ? 
-             AND empreinte_circulation = ?`,
+             AND empreinte_circulation = ?
+             LIMIT 1`,
             [eci.a1.serviceAnnuel, eci.a1.empreinte_circulation]
         );
 
@@ -404,6 +423,7 @@ class ECIProcessor {
         try {
             await this.database.run('BEGIN TRANSACTION');
 
+            let eciCount = 0;
             for (const eci of bloc) {
                 const article = eci.a1 || eci;
                 const eciNormalise = {
@@ -424,8 +444,12 @@ class ECIProcessor {
                     }
                 }
                 
-                // Permettre à l'interface de se rafraîchir
-                await new Promise(resolve => setTimeout(resolve, 0));
+                eciCount++;
+                
+                // Pause seulement tous les 10 ECI
+                if (eciCount % 10 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
             }
 
             await this.database.run('COMMIT');
@@ -441,11 +465,21 @@ class ECIProcessor {
      * @returns {Promise<void>}
      */
     async traiterFichierECI(ecis) {
+        const startTime = Date.now();
+        const formatElapsed = (ms) => {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        };
         if (this.onProgress) {
+            const elapsed = Date.now() - startTime;
             this.onProgress({
                 phase: 'début',
                 message: 'Début du traitement du fichier ECI',
-                total: ecis.length
+                total: ecis.length,
+                elapsed: Math.floor(elapsed / 1000),
+                elapsedFormatted: formatElapsed(elapsed)
             });
             
             // Permettre à l'interface de se rafraîchir
@@ -462,10 +496,13 @@ class ECIProcessor {
             eciTraites += bloc.length;
             
             if (this.onProgress) {
+                const elapsed = Date.now() - startTime;
                 this.onProgress({
                     phase: 'progression',
                     message: `Traitement en cours... ${eciTraites}/${ecis.length} ECIs traités`,
-                    progress: Math.round((eciTraites / ecis.length) * 100)
+                    progress: Math.round((eciTraites / ecis.length) * 100),
+                    elapsed: Math.floor(elapsed / 1000),
+                    elapsedFormatted: formatElapsed(elapsed)
                 });
                 
                 // Permettre à l'interface de se rafraîchir
@@ -474,11 +511,14 @@ class ECIProcessor {
         }
 
         if (this.onProgress) {
+            const elapsed = Date.now() - startTime;
             this.onProgress({
                 phase: 'fin',
                 message: 'Traitement terminé avec succès',
                 total: ecis.length,
-                traites: eciTraites
+                traites: eciTraites,
+                elapsed: Math.floor(elapsed / 1000),
+                elapsedFormatted: formatElapsed(elapsed)
             });
         }
     }
@@ -527,8 +567,10 @@ class ECIProcessor {
                 continue;
             }
             
-            const cleCourante = `${article.marche}_${article.dateDepart}`;
+            //const cleCourante = `${article.marche}_${article.dateDepart}`;
+            const cleCourante = `${article.marche}`;
             
+
             if (cleCourante !== derniereCle && blocCourant.length > 0) {
                 blocs.push(blocCourant);
                 blocCourant = [];

@@ -320,7 +320,7 @@ FONCTION AJOUTER_UNE_CIRCULATION_JOUR(p_eci,p_id_pdt_cireg)
 
         // Mise à jour régime binaire
         quantieme = CALCULER_QUANTIEME(
-            cireg.service_annuel,
+            p_eci.a1.serviceAnnuel,
             p_eci.a1.dateDepart
         )
         
