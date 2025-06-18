@@ -180,10 +180,9 @@ class ECIProcessor {
                         ciregJour[0].date_depart
                     );
 
-                    // Convertir le régime en tableau de caractères pour modification
-                    let regimeArray = cireg[0].regime_binaire.split('');
-                    regimeArray[quantieme - 1] = '0';
-                    const nouveauRegime = regimeArray.join('');
+                    // Version optimisée (plus rapide)
+                    const regime = cireg[0].regime_binaire;
+                    const nouveauRegime = regime.substring(0, quantieme - 1) + '0' + regime.substring(quantieme);
 
                     // Mettre à jour le régime
                     await this.database.run(
@@ -340,10 +339,10 @@ class ECIProcessor {
                 eci.a1.dateDepart
             );
 
-            let regimeArray = cireg[0].regime_binaire.split('');
-            regimeArray[quantieme - 1] = '1';
-            const nouveauRegime = regimeArray.join('');
+            const regime = cireg[0].regime_binaire;
+            const nouveauRegime = regime.substring(0, quantieme - 1) + '1' + regime.substring(quantieme);
 
+            
             await this.database.run(
                 'UPDATE pdt_cireg SET regime_binaire = ? WHERE id_int_cireg = ?',
                 [nouveauRegime, idCireg]
@@ -447,7 +446,7 @@ class ECIProcessor {
                 eciCount++;
                 
                 // Pause seulement tous les 10 ECI
-                if (eciCount % 10 === 0) {
+                if (eciCount % 1000 === 0) {
                     await new Promise(resolve => setTimeout(resolve, 0));
                 }
             }
